@@ -64,27 +64,45 @@ def plot_chart(df, symbol):
     st.pyplot(fig)
 
 def detect_signals(df):
+    if len(df) < 30:
+        return ["❌ لا توجد بيانات كافية للتحليل الفني"]
+
+    df = df.dropna(subset=['RSI', 'MACD', 'Signal', 'SMA_50'])
+
+    if len(df) < 2:
+        return ["❌ المؤشرات غير كافية بعد حذف القيم الفارغة"]
+
     latest = df.iloc[-1]
     prev = df.iloc[-2]
 
     signals = []
 
-    if latest['RSI'] > 70:
-        signals.append("🔺 RSI يشير إلى تشبع شرائي")
-    elif latest['RSI'] < 30:
-        signals.append("🔻 RSI يشير إلى تشبع بيعي")
+    try:
+        if latest['RSI'] > 70:
+            signals.append("🔺 RSI يشير إلى تشبع شرائي")
+        elif latest['RSI'] < 30:
+            signals.append("🔻 RSI يشير إلى تشبع بيعي")
+    except:
+        signals.append("⚠️ لم يتم حساب RSI بشكل صحيح")
 
-    if prev['MACD'] < prev['Signal'] and latest['MACD'] > latest['Signal']:
-        signals.append("🔺 تقاطع MACD صعودي (إشارة شراء)")
-    elif prev['MACD'] > prev['Signal'] and latest['MACD'] < latest['Signal']:
-        signals.append("🔻 تقاطع MACD هبوطي (إشارة بيع)")
+    try:
+        if prev['MACD'] < prev['Signal'] and latest['MACD'] > latest['Signal']:
+            signals.append("🔺 تقاطع MACD صعودي (إشارة شراء)")
+        elif prev['MACD'] > prev['Signal'] and latest['MACD'] < latest['Signal']:
+            signals.append("🔻 تقاطع MACD هبوطي (إشارة بيع)")
+    except:
+        signals.append("⚠️ لم يتم حساب MACD بشكل صحيح")
 
-    if latest['Close'] > latest['SMA_50']:
-        signals.append("✅ السعر أعلى من المتوسط 50 يوم (قوة)")
-    else:
-        signals.append("⚠️ السعر تحت المتوسط 50 يوم")
+    try:
+        if latest['Close'] > latest['SMA_50']:
+            signals.append("✅ السعر أعلى من المتوسط 50 يوم (قوة)")
+        else:
+            signals.append("⚠️ السعر تحت المتوسط 50 يوم")
+    except:
+        signals.append("⚠️ لا يمكن تقييم وضع السعر مقابل المتوسط")
 
     return signals
+
 
 # ========== واجهة Streamlit ==========
 
