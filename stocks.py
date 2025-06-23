@@ -1,3 +1,5 @@
+# stock_dashboard.py
+
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -8,185 +10,113 @@ st.set_page_config(page_title="تحليل فني للأسهم", layout="wide")
 
 @st.cache_data
 def fetch_data(symbol, period="6mo"):
-    try:
-        df = yf.download(symbol, period=period)
-        if df.empty:
-            return pd.DataFrame()
-        df.reset_index(inplace=True)
-        df['date'] = pd.to_datetime(df['Date'])
-        df.set_index('date', inplace=True)
-        return df
-    except Exception as e:
-        st.error(f"خطأ في جلب بيانات {symbol}: {str(e)}")
+    df = yf.download(symbol, period=period)
+    if df.empty:
         return pd.DataFrame()
+    df.reset_index(inplace=True)
+    df['date'] = pd.to_datetime(df['Date'])
+    df.set_index('date', inplace=True)
+    return df
 
-def calculate_indicators(df, symbol=""):
-    try:
-        if len(df) < 50:
-            st.warning(f"⚠️ لا يوجد بيانات كافية لتحليل {symbol} (تحتاج 50 يوم على الأقل)")
-            return pd.DataFrame()
-        
-        df['SMA_50'] = df['Close'].rolling(window=50).mean()
-        df['EMA_20'] = df['Close'].ewm(span=20, adjust=False).mean()
-        
-        delta = df['Close'].diff()
-        gain = delta.clip(lower=0)
-        loss = -delta.clip(upper=0)
-        avg_gain = gain.rolling(14).mean()
-        avg_loss = loss.rolling(14).mean()
-        rs = avg_gain / avg_loss
-        df['RSI'] = 100 - (100 / (1 + rs))
-        
-        exp1 = df['Close'].ewm(span=12, adjust=False).mean()
-        exp2 = df['Close'].ewm(span=26, adjust=False).mean()
-        df['MACD'] = exp1 - exp2
-        df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
-        
-        return df.dropna()
-    except Exception as e:
-        st.error(f"خطأ في حساب المؤشرات لـ {symbol}: {str(e)}")
-        return pd.DataFrame()
+def calculate_indicators(df):
+    df['SMA_50'] = df['Close'].rolling(window=50).mean()
+    df['EMA_20'] = df['Close'].ewm(span=20, adjust=False).mean()
 
-def draw_gauge(label, value, min_value=0, max_value=100, color='green'):
-    fig, ax = plt.subplots(figsize=(3.5, 2.3), subplot_kw={'projection': 'polar'})
-    ax.set_theta_offset(np.pi / 2)
-    ax.set_theta_direction(-1)
-    ax.set_ylim(0, 10)
-    angles = np.linspace(0, np.pi, 100)
-    ax.plot(angles, [10]*100, lw=20, color='lightgray')
-    angle = np.pi * (value - min_value) / (max_value - min_value)
-    ax.arrow(angle, 0, 0, 8, width=0.05, head_width=0.2, head_length=1, fc=color, ec=color)
-    ax.set_yticklabels([])
-    ax.set_xticks([])
-    ax.spines['polar'].set_visible(False)
-    ax.text(0, -2, f"{label}\n{value:.1f}", ha='center', va='center', fontsize=12)
-    plt.close()
-    return fig
+    delta = df['Close'].diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.rolling(14).mean()
+    avg_loss = loss.rolling(14).mean()
+    rs = avg_gain / avg_loss
+    df['RSI'] = 100 - (100 / (1 + rs))
 
-def performance_summary(df):
-    summary = {}
-    scores = 0
+    exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+    exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+    df['MACD'] = exp1 - exp2
+    df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
     
-    if df.empty or any(col not in df.columns for col in ['RSI', 'MACD', 'Signal', 'SMA_50', 'Close']):
-        return {'error': 'بيانات غير كافية للتحليل'}
-    
-    try:
-        # تحليل RSI
-        rsi = df['RSI'].iloc[-1] if not df['RSI'].empty else 0
-        if pd.isna(rsi):
-            summary['RSI'] = (0, 'gray')
-        elif float(rsi) > 70:
-            summary['RSI'] = (float(rsi), 'red')
-        elif float(rsi) > 55:
-            summary['RSI'] = (float(rsi), 'green')
-            scores += 1
-        elif float(rsi) > 45:
-            summary['RSI'] = (float(rsi), 'blue')
-        else:
-            summary['RSI'] = (float(rsi), 'red')
-
-        # تحليل MACD
-        macd = df['MACD'].iloc[-1] if not df['MACD'].empty else 0
-        signal = df['Signal'].iloc[-1] if not df['Signal'].empty else 0
-        macd_strength = float(macd) - float(signal)
-        if pd.isna(macd_strength):
-            summary['MACD'] = (0, 'gray')
-        elif macd_strength > 0.5:
-            summary['MACD'] = (macd_strength*10, 'green')
-            scores += 1
-        elif macd_strength < -0.5:
-            summary['MACD'] = (abs(macd_strength)*10, 'red')
-        else:
-            summary['MACD'] = (abs(macd_strength)*10, 'blue')
-
-        # تحليل SMA
-        price = df['Close'].iloc[-1] if not df['Close'].empty else 0
-        sma = df['SMA_50'].iloc[-1] if not df['SMA_50'].empty else 0
-        sma_diff = float(price) - float(sma)
-        if pd.isna(sma_diff):
-            summary['SMA'] = (0, 'gray')
-        elif sma_diff > 0:
-            summary['SMA'] = (sma_diff, 'green')
-            scores += 1
-        else:
-            summary['SMA'] = (abs(sma_diff), 'red')
-
-        # تحليل الاتجاه
-        trend = df['Close'].rolling(5).mean().diff().iloc[-1] if not df['Close'].empty else 0
-        if pd.isna(trend):
-            summary['Trend'] = (0, 'gray')
-        elif float(trend) > 0.5:
-            summary['Trend'] = (float(trend)*10, 'green')
-            scores += 1
-        elif float(trend) < -0.5:
-            summary['Trend'] = (abs(float(trend))*10, 'red')
-        else:
-            summary['Trend'] = (abs(float(trend))*10, 'blue')
-
-        summary['score'] = scores
-        return summary
-    except Exception as e:
-        return {'error': f'خطأ في التحليل: {str(e)}'}
+    return df
 
 def plot_chart(df, symbol):
-    try:
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax.plot(df['Close'], label='السعر', color='black')
-        if 'SMA_50' in df.columns and not df['SMA_50'].empty:
-            ax.plot(df['SMA_50'], label='SMA 50', linestyle='--')
-        if 'EMA_20' in df.columns and not df['EMA_20'].empty:
-            ax.plot(df['EMA_20'], label='EMA 20', linestyle=':')
-        ax.set_title(f"سعر {symbol}")
-        ax.legend()
-        ax.grid(True)
-        st.pyplot(fig)
-    except Exception as e:
-        st.error(f"خطأ في عرض الرسم البياني لـ {symbol}: {str(e)}")
+    fig, ax = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
 
-# واجهة التطبيق
-st.title("📈 نظام التحليل الفني للأسهم")
+    ax[0].plot(df['Close'], label='السعر', color='black')
+    ax[0].plot(df['SMA_50'], label='SMA 50', linestyle='--')
+    ax[0].plot(df['EMA_20'], label='EMA 20', linestyle=':')
+    ax[0].set_title(f"سعر {symbol}")
+    ax[0].legend()
+    ax[0].grid(True)
+
+    ax[1].plot(df['RSI'], label='RSI', color='purple')
+    ax[1].axhline(70, color='red', linestyle='--')
+    ax[1].axhline(30, color='green', linestyle='--')
+    ax[1].set_title('RSI')
+    ax[1].legend()
+    ax[1].grid(True)
+
+    ax[2].plot(df['MACD'], label='MACD', color='blue')
+    ax[2].plot(df['Signal'], label='Signal', color='orange')
+    ax[2].axhline(0, color='gray', linestyle='--')
+    ax[2].set_title('MACD')
+    ax[2].legend()
+    ax[2].grid(True)
+
+    st.pyplot(fig)
+
+def detect_signals(df):
+    required_cols = ['RSI', 'MACD', 'Signal', 'SMA_50']
+    missing_cols = [col for col in required_cols if col not in df.columns]
+
+    if missing_cols:
+        return [f"❌ المؤشرات التالية غير موجودة: {', '.join(missing_cols)}"]
+
+    df = df.dropna(subset=required_cols)
+    if len(df) < 2:
+        return ["❌ لا توجد بيانات كافية للتحليل"]
+
+    latest = df.iloc[-1]
+    prev = df.iloc[-2]
+    signals = []
+
+    if latest['RSI'] > 70:
+        signals.append("🔺 RSI يشير إلى تشبع شرائي")
+    elif latest['RSI'] < 30:
+        signals.append("🔻 RSI يشير إلى تشبع بيعي")
+
+    if prev['MACD'] < prev['Signal'] and latest['MACD'] > latest['Signal']:
+        signals.append("🔺 تقاطع MACD صعودي (إشارة شراء)")
+    elif prev['MACD'] > prev['Signal'] and latest['MACD'] < latest['Signal']:
+        signals.append("🔻 تقاطع MACD هبوطي (إشارة بيع)")
+
+    if latest['Close'] > latest['SMA_50']:
+        signals.append("✅ السعر أعلى من المتوسط 50 يوم (قوة)")
+    else:
+        signals.append("⚠️ السعر تحت المتوسط 50 يوم")
+
+    return signals
+
+# ========== واجهة Streamlit ==========
+
+st.title("📈 لوحة التحليل الفني لعدة أسهم")
+
 symbols_input = st.text_input("📥 أدخل رموز الأسهم مفصولة بفواصل (مثال: AAPL,MSFT,2280.SR):", "AAPL,MSFT")
 period = st.selectbox("⏳ اختر المدة الزمنية:", ["1mo", "3mo", "6mo", "1y"], index=2)
-filter_strong = st.checkbox("✅ إظهار الأسهم ذات الأداء الفني القوي فقط", value=False)
 
 if st.button("🔍 تحليل الأسهم"):
     symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()]
     for symbol in symbols:
-        st.markdown(f"---\n## 🔎 {symbol}")
+        st.markdown(f"## 🔎 {symbol}")
         try:
             df = fetch_data(symbol, period)
             if df.empty:
                 st.warning(f"⚠️ لا توجد بيانات للسهم {symbol}")
                 continue
 
-            df = calculate_indicators(df, symbol)
-            if df.empty:
-                st.warning(f"⚠️ لا توجد بيانات كافية لتحليل {symbol}")
-                continue
+            df = calculate_indicators(df)
+            plot_chart(df, symbol)
 
-            summary = performance_summary(df)
-            
-            if 'error' in summary:
-                st.error(f"❌ خطأ في تحليل {symbol}: {summary['error']}")
-                continue
-
-            if filter_strong and summary.get('score', 0) < 3:
-                continue
-
-            col1, col2 = st.columns([2, 1])
-
-            with col1:
-                plot_chart(df, symbol)
-
-            with col2:
-                st.subheader("📊 مؤشرات القوة:")
-                for label in ['RSI', 'MACD', 'SMA', 'Trend']:
-                    if label in summary and isinstance(summary[label], tuple):
-                        value, color = summary[label]
-                        fig = draw_gauge(label, value, 0, 100 if label == 'RSI' else 50, color)
-                        st.pyplot(fig)
-                    else:
-                        st.warning(f"⚠️ لا توجد بيانات لمؤشر {label}")
-
+            signals = detect_signals(df)
+            for sig in signals:
+                st.info(sig)
         except Exception as e:
-            st.error(f"❌ حدث خطأ غير متوقع أثناء تحليل {symbol}: {e}")
+            st.error(f"❌ حدث خطأ أثناء تحليل {symbol}: {e}")
