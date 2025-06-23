@@ -6,11 +6,13 @@ import matplotlib.pyplot as plt
 import yfinance as yf
 import numpy as np
 
-st.set_page_config(page_title="تحليل الأسهم الفني", layout="wide")
+st.set_page_config(page_title="تحليل فني للأسهم", layout="wide")
 
 @st.cache_data
 def fetch_data(symbol, period="6mo"):
     df = yf.download(symbol, period=period)
+    if df.empty:
+        return pd.DataFrame()
     df.reset_index(inplace=True)
     df['date'] = pd.to_datetime(df['Date'])
     df.set_index('date', inplace=True)
@@ -62,19 +64,18 @@ def plot_chart(df, symbol):
     st.pyplot(fig)
 
 def detect_signals(df):
-    indicators = ['RSI', 'MACD', 'Signal', 'SMA_50']
-    
-    missing = [col for col in indicators if col not in df.columns]
-    if missing:
-        return [f"❌ المؤشرات التالية غير موجودة: {', '.join(missing)}"]
+    required_cols = ['RSI', 'MACD', 'Signal', 'SMA_50']
+    missing_cols = [col for col in required_cols if col not in df.columns]
 
-    df_clean = df.dropna(subset=indicators)
-    if len(df_clean) < 2:
-        return ["❌ لا توجد بيانات كافية للتحليل بعد إزالة القيم الفارغة"]
+    if missing_cols:
+        return [f"❌ المؤشرات التالية غير موجودة: {', '.join(missing_cols)}"]
 
-    latest = df_clean.iloc[-1]
-    prev = df_clean.iloc[-2]
+    df = df.dropna(subset=required_cols)
+    if len(df) < 2:
+        return ["❌ لا توجد بيانات كافية للتحليل"]
 
+    latest = df.iloc[-1]
+    prev = df.iloc[-2]
     signals = []
 
     if latest['RSI'] > 70:
@@ -96,26 +97,26 @@ def detect_signals(df):
 
 # ========== واجهة Streamlit ==========
 
-st.title("📈 نظام التحليل الفني للأسهم")
+st.title("📈 لوحة التحليل الفني لعدة أسهم")
 
-symbols = st.text_input("📥 أدخل رمز السهم (مثال: AAPL أو 2280.SR):", "AAPL")
-period = st.selectbox("⏳ اختر المدة:", ["1mo", "3mo", "6mo", "1y"], index=2)
+symbols_input = st.text_input("📥 أدخل رموز الأسهم مفصولة بفواصل (مثال: AAPL,MSFT,2280.SR):", "AAPL,MSFT")
+period = st.selectbox("⏳ اختر المدة الزمنية:", ["1mo", "3mo", "6mo", "1y"], index=2)
 
-if st.button("🔍 تحليل"):
-    try:
-        df = fetch_data(symbols.upper(), period=period)
-        if df.empty:
-            st.error("لم يتم جلب بيانات السهم. تأكد من الرمز.")
-        else:
+if st.button("🔍 تحليل الأسهم"):
+    symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()]
+    for symbol in symbols:
+        st.markdown(f"## 🔎 {symbol}")
+        try:
+            df = fetch_data(symbol, period)
+            if df.empty:
+                st.warning(f"⚠️ لا توجد بيانات للسهم {symbol}")
+                continue
+
             df = calculate_indicators(df)
+            plot_chart(df, symbol)
 
-            st.subheader("📊 المخطط الفني:")
-            plot_chart(df, symbols.upper())
-
-            st.subheader("🚨 الإشارات والتحذيرات الفنية:")
             signals = detect_signals(df)
             for sig in signals:
                 st.info(sig)
-
-    except Exception as e:
-        st.error(f"حدث خطأ أثناء التحليل: {e}")
+        except Exception as e:
+            st.error(f"❌ حدث خطأ أثناء تحليل {symbol}: {e}")
