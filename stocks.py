@@ -7,13 +7,14 @@ from datetime import datetime
 
 st.set_page_config(page_title="📊 لوحة التحليل الفني للأسهم", layout="wide")
 
-API_KEY = "892f28628ea14be189ae98c007587b3a"
+TIINGO_API_KEY = "16be092ddfdcb6e34f1de36875a3072e2c724afb"
+TWELVE_API_KEY = "892f28628ea14be189ae98c007587b3a"
 
 @st.cache_data
-def fetch_data(symbol, period="6mo"):
+def fetch_data_twelvedata(symbol, period="6mo"):
     interval = "1day"
     outputsize = "5000"
-    url = f"https://api.twelvedata.com/time_series?symbol={symbol}&interval={interval}&outputsize={outputsize}&apikey={API_KEY}"
+    url = f"https://api.twelvedata.com/time_series?symbol={symbol}&interval={interval}&outputsize={outputsize}&apikey={TWELVE_API_KEY}"
     response = requests.get(url)
     data = response.json()
 
@@ -29,6 +30,35 @@ def fetch_data(symbol, period="6mo"):
     numeric_cols = ['open', 'high', 'low', 'close', 'volume']
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    return df
+
+@st.cache_data
+def fetch_data_tiingo(symbol, start_date="2023-01-01", end_date="2024-01-01"):
+    url = f"https://api.tiingo.com/tiingo/daily/{symbol}/prices"
+    params = {
+        "startDate": start_date,
+        "endDate": end_date
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Token {TIINGO_API_KEY}"
+    }
+    response = requests.get(url, headers=headers, params=params)
+    data = response.json()
+
+    if not data or not isinstance(data, list):
+        return pd.DataFrame()
+
+    df = pd.DataFrame(data)
+    df['date'] = pd.to_datetime(df['date'])
+    df.set_index('date', inplace=True)
+    df = df.sort_index()
+
+    numeric_cols = ['open', 'high', 'low', 'close', 'volume']
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
 
     return df
 
@@ -104,9 +134,14 @@ def plot_macd(df):
 st.title("🚀 لوحة التحليل الفني المتقدمة")
 symbol = st.text_input("📥 أدخل رمز السهم (مثال: AAPL أو TADAWUL:2280):", value="AAPL")
 period = st.selectbox("🕒 اختر الفترة الزمنية", ["1mo", "3mo", "6mo", "1y"], index=2)
+data_source = st.selectbox("📡 اختر مصدر البيانات", ["TwelveData", "Tiingo"], index=0)
 
 if st.button("📊 تحليل السهم"):
-    df = fetch_data(symbol, period)
+    if data_source == "Tiingo":
+        df = fetch_data_tiingo(symbol, start_date="2023-01-01", end_date=str(datetime.now().date()))
+    else:
+        df = fetch_data_twelvedata(symbol, period)
+
     if df.empty or df.shape[0] < 60:
         st.error("⚠️ لا توجد بيانات كافية لتحليل هذا السهم.")
     else:
