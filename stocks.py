@@ -4,10 +4,10 @@ import json
 from datetime import datetime, timedelta
 
 class StockAnalyzer:
-    def __init__(self, api_key=None):
+    def __init__(self, api_key="CC2Q652M57ECE2UV"):  # هنا نضع مفتاح API الافتراضي
         self.api_key = api_key
         self.base_url = "https://www.alphavantage.co/query"
-        self.stock_data = {CC2Q652M57ECE2UV}
+        self.stock_data = {}  # هذا يجب أن يكون قاموسًا فارغًا
         
     def set_api_key(self, api_key):
         """وظيفة لربط مفتاح API"""
