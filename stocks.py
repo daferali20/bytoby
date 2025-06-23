@@ -1,11 +1,11 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 import numpy as np
 import requests
 from datetime import datetime
 
-st.set_page_config(page_title="تحليل فني للأسهم", layout="wide")
+st.set_page_config(page_title="📊 لوحة التحليل الفني للأسهم", layout="wide")
 
 API_KEY = "892f28628ea14be189ae98c007587b3a"
 
@@ -26,7 +26,6 @@ def fetch_data(symbol, period="6mo"):
     df.set_index('date', inplace=True)
     df = df.sort_index()
 
-    # تأكد من تحويل الأعمدة الرقمية إلى float
     numeric_cols = ['open', 'high', 'low', 'close', 'volume']
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -47,130 +46,75 @@ def calculate_indicators(df):
     exp2 = df['close'].ewm(span=26, adjust=False).mean()
     df['MACD'] = exp1 - exp2
     df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
-    return df.dropna(subset=['SMA_50', 'EMA_20', 'RSI', 'MACD', 'Signal'])
+    return df.dropna()
 
-def draw_gauge(label, value, min_value=0, max_value=100, color='green'):
-    fig, ax = plt.subplots(figsize=(3.5, 2.3), subplot_kw={'projection': 'polar'})
-    ax.set_theta_offset(np.pi / 2)
-    ax.set_theta_direction(-1)
-    ax.set_ylim(0, 10)
-    angles = np.linspace(0, np.pi, 100)
-    ax.plot(angles, [10]*100, lw=20, color='lightgray')
-    angle = np.pi * (value - min_value) / (max_value - min_value)
-    ax.arrow(angle, 0, 0, 8, width=0.05, head_width=0.2, head_length=1, fc=color, ec=color)
-    ax.set_yticklabels([])
-    ax.set_xticks([])
-    ax.spines['polar'].set_visible(False)
-    ax.text(0, -2, f"{label}\n{value:.1f}", ha='center', va='center', fontsize=12)
-    plt.close()
+def plot_advanced_chart(df, symbol):
+    fig = go.Figure()
+
+    fig.add_trace(go.Candlestick(
+        x=df.index,
+        open=df['open'],
+        high=df['high'],
+        low=df['low'],
+        close=df['close'],
+        name='السعر'
+    ))
+
+    fig.add_trace(go.Scatter(
+        x=df.index,
+        y=df['EMA_20'],
+        mode='lines',
+        line=dict(color='blue', width=1.5),
+        name='EMA 20'
+    ))
+
+    fig.add_trace(go.Scatter(
+        x=df.index,
+        y=df['SMA_50'],
+        mode='lines',
+        line=dict(color='orange', width=1.5, dash='dash'),
+        name='SMA 50'
+    ))
+
+    fig.update_layout(
+        title=f"📉 الشموع اليابانية والمؤشرات - {symbol}",
+        xaxis_title="التاريخ",
+        yaxis_title="السعر",
+        xaxis_rangeslider_visible=False,
+        template='plotly_dark',
+        height=600
+    )
     return fig
 
-def performance_summary(df):
-    required = ['RSI', 'MACD', 'Signal', 'SMA_50']
-    for col in required:
-        if col not in df.columns or df[col].isna().all():
-            raise ValueError(f"البيانات تفتقد إلى العمود: {col}")
+def plot_rsi(df):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='lightgreen')))
+    fig.add_hline(y=70, line=dict(color='red', dash='dash'))
+    fig.add_hline(y=30, line=dict(color='blue', dash='dash'))
+    fig.update_layout(title='مؤشر القوة النسبية (RSI)', height=300, template='plotly_white')
+    return fig
 
-    summary = {}
-    scores = 0
+def plot_macd(df):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df.index, y=df['MACD'], mode='lines', name='MACD', line=dict(color='cyan')))
+    fig.add_trace(go.Scatter(x=df.index, y=df['Signal'], mode='lines', name='Signal', line=dict(color='orange')))
+    fig.update_layout(title='مؤشر الماكد (MACD)', height=300, template='plotly_white')
+    return fig
 
-    rsi = df['RSI'].iloc[-1]
-    if rsi > 70:
-        summary['RSI'] = (rsi, 'red')
-    elif rsi > 55:
-        summary['RSI'] = (rsi, 'green'); scores += 1
-    elif rsi > 45:
-        summary['RSI'] = (rsi, 'blue')
+st.title("🚀 لوحة التحليل الفني المتقدمة")
+symbol = st.text_input("📥 أدخل رمز السهم (مثال: AAPL أو TADAWUL:2280):", value="AAPL")
+period = st.selectbox("🕒 اختر الفترة الزمنية", ["1mo", "3mo", "6mo", "1y"], index=2)
+
+if st.button("📊 تحليل السهم"):
+    df = fetch_data(symbol, period)
+    if df.empty or df.shape[0] < 60:
+        st.error("⚠️ لا توجد بيانات كافية لتحليل هذا السهم.")
     else:
-        summary['RSI'] = (rsi, 'red')
+        df = calculate_indicators(df)
+        st.plotly_chart(plot_advanced_chart(df, symbol), use_container_width=True)
 
-    macd = df['MACD'].iloc[-1]
-    signal = df['Signal'].iloc[-1]
-    macd_strength = macd - signal
-    if macd_strength > 0.5:
-        summary['MACD'] = (macd_strength*10, 'green'); scores += 1
-    elif macd_strength < -0.5:
-        summary['MACD'] = (abs(macd_strength)*10, 'red')
-    else:
-        summary['MACD'] = (abs(macd_strength)*10, 'blue')
-
-    price = df['close'].iloc[-1]
-    sma = df['SMA_50'].iloc[-1]
-    sma_diff = price - sma
-    if sma_diff > 0:
-        summary['SMA'] = (sma_diff, 'green'); scores += 1
-    else:
-        summary['SMA'] = (abs(sma_diff), 'red')
-
-    trend = df['close'].rolling(5).mean().diff().iloc[-1]
-    if trend > 0.5:
-        summary['Trend'] = (trend*10, 'green'); scores += 1
-    elif trend < -0.5:
-        summary['Trend'] = (abs(trend)*10, 'red')
-    else:
-        summary['Trend'] = (abs(trend)*10, 'blue')
-
-    summary['score'] = scores
-    return summary
-
-def plot_chart(df, symbol):
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(df['close'], label='السعر', color='black')
-    ax.plot(df['SMA_50'], label='SMA 50', linestyle='--')
-    ax.plot(df['EMA_20'], label='EMA 20', linestyle=':')
-    ax.set_title(f"سعر {symbol}")
-    ax.legend()
-    ax.grid(True)
-    st.pyplot(fig)
-
-# واجهة التطبيق
-st.title("📈 نظام التحليل الفني للأسهم")
-symbols_input = st.text_input("📥 أدخل رموز الأسهم مفصولة بفواصل (مثال: AAPL,MSFT,2280.SR):")
-period = st.selectbox("⏳ اختر المدة الزمنية:", ["1mo", "3mo", "6mo", "1y"], index=2)
-filter_strong = st.checkbox("✅ إظهار الأسهم ذات الأداء الفني القوي فقط", value=False)
-
-symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()]
-if not symbols:
-    symbols = ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA", "AMZN", "META"]
-    st.info("🔄 تم استخدام رموز الأسهم الافتراضية تلقائيًا.")
-
-if st.button("🔍 تحليل الأسهم"):
-    for symbol in symbols:
-        st.markdown(f"---\n## 🔎 {symbol}")
-        try:
-            st.write(f"📡 تحميل البيانات لـ: {symbol}")
-            df = fetch_data(symbol, period)
-            if df.empty or df.shape[0] < 60:
-                st.warning(f"⚠️ لا توجد بيانات كافية للسهم {symbol}")
-                continue
-
-            df = calculate_indicators(df)
-
-            if any(pd.isna(df[col].iloc[-1]) for col in ['RSI', 'MACD', 'Signal', 'SMA_50']):
-                st.warning(f"⚠️ المؤشرات الفنية غير مكتملة لـ {symbol}")
-                continue
-
-            summary = performance_summary(df)
-
-            if filter_strong and summary['score'] < 3:
-                continue
-
-            col1, col2 = st.columns([2, 1])
-
-            with col1:
-                plot_chart(df, symbol)
-
-            with col2:
-                st.subheader("📊 مؤشرات القوة:")
-                for label in ['RSI', 'MACD', 'SMA', 'Trend']:
-                    value, color = summary[label]
-                    if pd.isna(value) or np.isinf(value):
-                        st.warning(f"⚠️ المؤشر {label} غير صالح لـ {symbol}")
-                        continue
-                    fig = draw_gauge(label, value, 0, 100 if label == 'RSI' else 50, color)
-                    st.pyplot(fig)
-
-        except ValueError as ve:
-            st.warning(f"⚠️ {symbol}: {ve}")
-        except Exception as e:
-            st.error(f"❌ حدث خطأ أثناء تحليل {symbol}: {e}")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.plotly_chart(plot_rsi(df), use_container_width=True)
+        with col2:
+            st.plotly_chart(plot_macd(df), use_container_width=True)
