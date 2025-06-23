@@ -107,19 +107,23 @@ def plot_chart(df, symbol):
     st.pyplot(fig)
 
 # واجهة التطبيق
-st.title("\ud83d\udcc8 نظام التحليل الفني للأسهم")
-symbols_input = st.text_input("\ud83d\udce5 أدخل رموز الأسهم مفصولة بفواصل (مثال: AAPL,MSFT,2280.SR):", "AAPL,MSFT")
-period = st.selectbox("\u23f3 اختر المدة الزمنية:", ["1mo", "3mo", "6mo", "1y"], index=2)
-filter_strong = st.checkbox("\u2705 إظهار الأسهم ذات الأداء الفني القوي فقط", value=False)
+st.title("📈 نظام التحليل الفني للأسهم")
+symbols_input = st.text_input("📥 أدخل رموز الأسهم مفصولة بفواصل (مثال: AAPL,MSFT,2280.SR):")
+period = st.selectbox("⏳ اختر المدة الزمنية:", ["1mo", "3mo", "6mo", "1y"], index=2)
+filter_strong = st.checkbox("✅ إظهار الأسهم ذات الأداء الفني القوي فقط", value=False)
 
-if st.button("\ud83d\udd0d تحليل الأسهم"):
-    symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()]
+symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()]
+if not symbols:
+    symbols = ["AAPL", "MSFT", "GOOGL", "TSLA", "NVDA", "AMZN", "META"]
+    st.info("🔄 تم استخدام رموز الأسهم الافتراضية تلقائيًا.")
+
+if st.button("🔍 تحليل الأسهم"):
     for symbol in symbols:
-        st.markdown(f"---\n## \ud83d\udd0e {symbol}")
+        st.markdown(f"---\n## 🔎 {symbol}")
         try:
             df = fetch_data(symbol, period)
             if df.empty:
-                st.warning(f"\u26a0\ufe0f لا توجد بيانات للسهم {symbol}")
+                st.warning(f"⚠️ لا توجد بيانات للسهم {symbol}")
                 continue
 
             df = calculate_indicators(df)
@@ -134,13 +138,13 @@ if st.button("\ud83d\udd0d تحليل الأسهم"):
                 plot_chart(df, symbol)
 
             with col2:
-                st.subheader("\ud83d\udcca مؤشرات القوة:")
+                st.subheader("📊 مؤشرات القوة:")
                 for label in ['RSI', 'MACD', 'SMA', 'Trend']:
                     value, color = summary[label]
                     fig = draw_gauge(label, value, 0, 100 if label == 'RSI' else 50, color)
                     st.pyplot(fig)
 
         except ValueError as ve:
-            st.warning(f"\u26a0\ufe0f {symbol}: {ve}")
+            st.warning(f"⚠️ {symbol}: {ve}")
         except Exception as e:
-            st.error(f"\u274c حدث خطأ أثناء تحليل {symbol}: {e}")
+            st.error(f"❌ حدث خطأ أثناء تحليل {symbol}: {e}")
