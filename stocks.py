@@ -1,33 +1,45 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import yfinance as yf
 import numpy as np
+import requests
+from datetime import datetime
 
 st.set_page_config(page_title="تحليل فني للأسهم", layout="wide")
 
+API_KEY = "892f28628ea14be189ae98c007587b3a"
+
 @st.cache_data
 def fetch_data(symbol, period="6mo"):
-    df = yf.download(symbol, period=period)
-    if df.empty:
+    interval = "1day"
+    outputsize = "5000"
+    url = f"https://api.twelvedata.com/time_series?symbol={symbol}&interval={interval}&outputsize={outputsize}&apikey={API_KEY}"
+    response = requests.get(url)
+    data = response.json()
+
+    if "values" not in data:
         return pd.DataFrame()
-    df.reset_index(inplace=True)
-    df['date'] = pd.to_datetime(df['Date'])
+
+    df = pd.DataFrame(data["values"])
+    df.columns = [col.lower() for col in df.columns]
+    df['date'] = pd.to_datetime(df['datetime'])
     df.set_index('date', inplace=True)
+    df = df.sort_index()
+    df = df.astype(float, errors='ignore')
     return df
 
 def calculate_indicators(df):
-    df['SMA_50'] = df['Close'].rolling(window=50).mean()
-    df['EMA_20'] = df['Close'].ewm(span=20, adjust=False).mean()
-    delta = df['Close'].diff()
+    df['SMA_50'] = df['close'].rolling(window=50).mean()
+    df['EMA_20'] = df['close'].ewm(span=20, adjust=False).mean()
+    delta = df['close'].diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
     avg_gain = gain.rolling(14).mean()
     avg_loss = loss.rolling(14).mean()
     rs = avg_gain / avg_loss
     df['RSI'] = 100 - (100 / (1 + rs))
-    exp1 = df['Close'].ewm(span=12, adjust=False).mean()
-    exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+    exp1 = df['close'].ewm(span=12, adjust=False).mean()
+    exp2 = df['close'].ewm(span=26, adjust=False).mean()
     df['MACD'] = exp1 - exp2
     df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
     return df.dropna(subset=['SMA_50', 'EMA_20', 'RSI', 'MACD', 'Signal'])
@@ -77,7 +89,7 @@ def performance_summary(df):
     else:
         summary['MACD'] = (abs(macd_strength)*10, 'blue')
 
-    price = df['Close'].iloc[-1]
+    price = df['close'].iloc[-1]
     sma = df['SMA_50'].iloc[-1]
     sma_diff = price - sma
     if sma_diff > 0:
@@ -85,7 +97,7 @@ def performance_summary(df):
     else:
         summary['SMA'] = (abs(sma_diff), 'red')
 
-    trend = df['Close'].rolling(5).mean().diff().iloc[-1]
+    trend = df['close'].rolling(5).mean().diff().iloc[-1]
     if trend > 0.5:
         summary['Trend'] = (trend*10, 'green'); scores += 1
     elif trend < -0.5:
@@ -98,7 +110,7 @@ def performance_summary(df):
 
 def plot_chart(df, symbol):
     fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(df['Close'], label='السعر', color='black')
+    ax.plot(df['close'], label='السعر', color='black')
     ax.plot(df['SMA_50'], label='SMA 50', linestyle='--')
     ax.plot(df['EMA_20'], label='EMA 20', linestyle=':')
     ax.set_title(f"سعر {symbol}")
