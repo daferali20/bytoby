@@ -4,84 +4,103 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import yfinance as yf
+import numpy as np
 
-st.set_page_config(page_title="تحليل الأسهم", layout="wide")
+st.set_page_config(page_title="تحليل الأسهم الفني", layout="wide")
 
-# ========== التحليل ==========
 @st.cache_data
-def fetch_data(symbol, period="3mo"):
-    data = yf.download(symbol, period=period)
-    data.reset_index(inplace=True)
-    data['date'] = pd.to_datetime(data['Date'])
-    data.set_index('date', inplace=True)
-    return data
+def fetch_data(symbol, period="6mo"):
+    df = yf.download(symbol, period=period)
+    df.reset_index(inplace=True)
+    df['date'] = pd.to_datetime(df['Date'])
+    df.set_index('date', inplace=True)
+    return df
 
-def plot_performance(symbol, period="6mo"):
-    data = fetch_data(symbol, period)
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(data['Close'], label=f"{symbol} سعر الإغلاق", color='blue')
-    ax.set_title(f"أداء {symbol} خلال {period}")
-    ax.set_xlabel("التاريخ")
-    ax.set_ylabel("السعر")
-    ax.grid(True)
-    ax.legend()
+def calculate_indicators(df):
+    df['SMA_50'] = df['Close'].rolling(window=50).mean()
+    df['EMA_20'] = df['Close'].ewm(span=20, adjust=False).mean()
+
+    delta = df['Close'].diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.rolling(14).mean()
+    avg_loss = loss.rolling(14).mean()
+    rs = avg_gain / avg_loss
+    df['RSI'] = 100 - (100 / (1 + rs))
+
+    exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+    exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+    df['MACD'] = exp1 - exp2
+    df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+    return df
+
+def plot_chart(df, symbol):
+    fig, ax = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
+
+    # السعر والمتوسطات
+    ax[0].plot(df['Close'], label='السعر', color='black')
+    ax[0].plot(df['SMA_50'], label='SMA 50', linestyle='--')
+    ax[0].plot(df['EMA_20'], label='EMA 20', linestyle=':')
+    ax[0].set_title(f"سعر {symbol}")
+    ax[0].legend()
+    ax[0].grid(True)
+
+    # RSI
+    ax[1].plot(df['RSI'], label='RSI', color='purple')
+    ax[1].axhline(70, color='red', linestyle='--')
+    ax[1].axhline(30, color='green', linestyle='--')
+    ax[1].set_title('RSI')
+    ax[1].legend()
+    ax[1].grid(True)
+
+    # MACD
+    ax[2].plot(df['MACD'], label='MACD', color='blue')
+    ax[2].plot(df['Signal'], label='Signal', color='orange')
+    ax[2].axhline(0, color='gray', linestyle='--')
+    ax[2].set_title('MACD')
+    ax[2].legend()
+    ax[2].grid(True)
+
     st.pyplot(fig)
 
-def calc_liquidity(symbols):
-    results = []
-    for symbol in symbols:
-        df = fetch_data(symbol)
-        avg_volume = df['Volume'].mean()
-        results.append({'الرمز': symbol, 'السيولة المتوسطة': avg_volume})
-    return pd.DataFrame(results).sort_values('السيولة المتوسطة', ascending=False)
+def detect_signals(df):
+    latest = df.iloc[-1]
+    prev = df.iloc[-2]
 
-def top_gainers(symbols):
-    results = []
-    for symbol in symbols:
-        df = fetch_data(symbol, period="5d")
-        change = (df['Close'].iloc[-1] - df['Open'].iloc[-1]) / df['Open'].iloc[-1] * 100
-        results.append({'الرمز': symbol, 'التغير (%)': round(change, 2)})
-    return pd.DataFrame(results).sort_values('التغير (%)', ascending=False)
+    signals = []
 
-def compare_vs_index(symbol, index="^GSPC"):
-    df_stock = fetch_data(symbol, period="1y")
-    df_index = fetch_data(index, period="1y")
-    r_stock = (df_stock['Close'].iloc[-1] - df_stock['Close'].iloc[0]) / df_stock['Close'].iloc[0] * 100
-    r_index = (df_index['Close'].iloc[-1] - df_index['Close'].iloc[0]) / df_index['Close'].iloc[0] * 100
-    return {
-        'أداء السهم': round(r_stock, 2),
-        'أداء المؤشر': round(r_index, 2),
-        'تفوق السهم': round(r_stock - r_index, 2)
-    }
+    if latest['RSI'] > 70:
+        signals.append("🔺 RSI يشير إلى تشبع شرائي")
+    elif latest['RSI'] < 30:
+        signals.append("🔻 RSI يشير إلى تشبع بيعي")
 
-# ========== الواجهة ==========
-st.title("📊 نظام تحليل الأسهم الذكي")
+    if prev['MACD'] < prev['Signal'] and latest['MACD'] > latest['Signal']:
+        signals.append("🔺 تقاطع MACD صعودي (إشارة شراء)")
+    elif prev['MACD'] > prev['Signal'] and latest['MACD'] < latest['Signal']:
+        signals.append("🔻 تقاطع MACD هبوطي (إشارة بيع)")
 
-symbols_default = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA"]
-symbols = st.multiselect("اختر الأسهم المراد تحليلها:", options=symbols_default, default=symbols_default)
+    if latest['Close'] > latest['SMA_50']:
+        signals.append("✅ السعر أعلى من المتوسط 50 يوم (قوة)")
+    else:
+        signals.append("⚠️ السعر تحت المتوسط 50 يوم")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 أداء السهم", "💧 السيولة", "🚀 الأعلى ارتفاعًا", "📊 مقارنة مع المؤشر", "🔍 التفاصيل"])
+    return signals
 
-with tab1:
-    selected = st.selectbox("اختر سهمًا للرسم:", symbols)
-    period = st.selectbox("الفترة:", ["1mo", "3mo", "6mo", "1y"], index=2)
-    plot_performance(selected, period)
+# ========== واجهة Streamlit ==========
 
-with tab2:
-    st.subheader("الأسهم الأكثر سيولة:")
-    st.dataframe(calc_liquidity(symbols), use_container_width=True)
+st.title("📈 نظام التحليل الفني للأسهم")
 
-with tab3:
-    st.subheader("الأسهم الأعلى ارتفاعًا:")
-    st.dataframe(top_gainers(symbols), use_container_width=True)
+symbols = st.text_input("📥 أدخل رمز السهم (مثال: AAPL أو 2280.SR):", "AAPL")
+period = st.selectbox("⏳ اختر المدة:", ["1mo", "3mo", "6mo", "1y"], index=2)
 
-with tab4:
-    selected = st.selectbox("اختر سهمًا للمقارنة:", symbols, key="comp")
-    results = compare_vs_index(selected)
-    st.metric("📈 أداء السهم", f"{results['أداء السهم']}%")
-    st.metric("📉 أداء المؤشر", f"{results['أداء المؤشر']}%")
-    st.metric("📊 تفوق السهم", f"{results['تفوق السهم']}%")
+if st.button("🔍 تحليل"):
+    df = fetch_data(symbols.upper(), period=period)
+    df = calculate_indicators(df)
 
-with tab5:
-    st.info("يمكنك تطوير تبويب تفاصيل لعرض مؤشرات RSI، MACD، متوسطات متحركة...")
+    st.subheader("📊 المخطط الفني:")
+    plot_chart(df, symbols.upper())
 
+    st.subheader("🚨 الإشارات والتحذيرات الفنية:")
+    signals = detect_signals(df)
+    for sig in signals:
+        st.info(sig)
