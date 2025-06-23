@@ -22,16 +22,13 @@ def fetch_data(symbol, period="6mo"):
 
 def calculate_indicators(df, symbol=""):
     try:
-        # التحقق من وجود بيانات كافية
         if len(df) < 50:
             st.warning(f"⚠️ لا يوجد بيانات كافية لتحليل {symbol} (تحتاج 50 يوم على الأقل)")
             return pd.DataFrame()
         
-        # حساب المؤشرات
         df['SMA_50'] = df['Close'].rolling(window=50).mean()
         df['EMA_20'] = df['Close'].ewm(span=20, adjust=False).mean()
         
-        # حساب RSI
         delta = df['Close'].diff()
         gain = delta.clip(lower=0)
         loss = -delta.clip(upper=0)
@@ -40,7 +37,6 @@ def calculate_indicators(df, symbol=""):
         rs = avg_gain / avg_loss
         df['RSI'] = 100 - (100 / (1 + rs))
         
-        # حساب MACD
         exp1 = df['Close'].ewm(span=12, adjust=False).mean()
         exp2 = df['Close'].ewm(span=26, adjust=False).mean()
         df['MACD'] = exp1 - exp2
@@ -71,57 +67,61 @@ def performance_summary(df):
     summary = {}
     scores = 0
     
-    if df.empty or any(col not in df.columns for col in ['RSI', 'MACD', 'Signal', 'SMA_50']):
+    if df.empty or any(col not in df.columns for col in ['RSI', 'MACD', 'Signal', 'SMA_50', 'Close']):
         return {'error': 'بيانات غير كافية للتحليل'}
     
     try:
         # تحليل RSI
-        rsi = df['RSI'].iloc[-1] if 'RSI' in df.columns else 0
+        rsi = df['RSI'].iloc[-1] if not df['RSI'].empty else 0
         if pd.isna(rsi):
             summary['RSI'] = (0, 'gray')
-        elif rsi > 70:
-            summary['RSI'] = (rsi, 'red')
-        elif rsi > 55:
-            summary['RSI'] = (rsi, 'green'); scores += 1
-        elif rsi > 45:
-            summary['RSI'] = (rsi, 'blue')
+        elif float(rsi) > 70:
+            summary['RSI'] = (float(rsi), 'red')
+        elif float(rsi) > 55:
+            summary['RSI'] = (float(rsi), 'green')
+            scores += 1
+        elif float(rsi) > 45:
+            summary['RSI'] = (float(rsi), 'blue')
         else:
-            summary['RSI'] = (rsi, 'red')
+            summary['RSI'] = (float(rsi), 'red')
 
         # تحليل MACD
-        macd = df['MACD'].iloc[-1] if 'MACD' in df.columns else 0
-        signal = df['Signal'].iloc[-1] if 'Signal' in df.columns else 0
-        macd_strength = macd - signal
+        macd = df['MACD'].iloc[-1] if not df['MACD'].empty else 0
+        signal = df['Signal'].iloc[-1] if not df['Signal'].empty else 0
+        macd_strength = float(macd) - float(signal)
         if pd.isna(macd_strength):
             summary['MACD'] = (0, 'gray')
         elif macd_strength > 0.5:
-            summary['MACD'] = (macd_strength*10, 'green'); scores += 1
+            summary['MACD'] = (macd_strength*10, 'green')
+            scores += 1
         elif macd_strength < -0.5:
             summary['MACD'] = (abs(macd_strength)*10, 'red')
         else:
             summary['MACD'] = (abs(macd_strength)*10, 'blue')
 
         # تحليل SMA
-        price = df['Close'].iloc[-1] if 'Close' in df.columns else 0
-        sma = df['SMA_50'].iloc[-1] if 'SMA_50' in df.columns else 0
-        sma_diff = price - sma
+        price = df['Close'].iloc[-1] if not df['Close'].empty else 0
+        sma = df['SMA_50'].iloc[-1] if not df['SMA_50'].empty else 0
+        sma_diff = float(price) - float(sma)
         if pd.isna(sma_diff):
             summary['SMA'] = (0, 'gray')
         elif sma_diff > 0:
-            summary['SMA'] = (sma_diff, 'green'); scores += 1
+            summary['SMA'] = (sma_diff, 'green')
+            scores += 1
         else:
             summary['SMA'] = (abs(sma_diff), 'red')
 
         # تحليل الاتجاه
-        trend = df['Close'].rolling(5).mean().diff().iloc[-1] if 'Close' in df.columns else 0
+        trend = df['Close'].rolling(5).mean().diff().iloc[-1] if not df['Close'].empty else 0
         if pd.isna(trend):
             summary['Trend'] = (0, 'gray')
-        elif trend > 0.5:
-            summary['Trend'] = (trend*10, 'green'); scores += 1
-        elif trend < -0.5:
-            summary['Trend'] = (abs(trend)*10, 'red')
+        elif float(trend) > 0.5:
+            summary['Trend'] = (float(trend)*10, 'green')
+            scores += 1
+        elif float(trend) < -0.5:
+            summary['Trend'] = (abs(float(trend))*10, 'red')
         else:
-            summary['Trend'] = (abs(trend)*10, 'blue')
+            summary['Trend'] = (abs(float(trend))*10, 'blue')
 
         summary['score'] = scores
         return summary
@@ -132,9 +132,9 @@ def plot_chart(df, symbol):
     try:
         fig, ax = plt.subplots(figsize=(10, 4))
         ax.plot(df['Close'], label='السعر', color='black')
-        if 'SMA_50' in df.columns:
+        if 'SMA_50' in df.columns and not df['SMA_50'].empty:
             ax.plot(df['SMA_50'], label='SMA 50', linestyle='--')
-        if 'EMA_20' in df.columns:
+        if 'EMA_20' in df.columns and not df['EMA_20'].empty:
             ax.plot(df['EMA_20'], label='EMA 20', linestyle=':')
         ax.set_title(f"سعر {symbol}")
         ax.legend()
