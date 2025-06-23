@@ -121,12 +121,18 @@ if st.button("🔍 تحليل الأسهم"):
     for symbol in symbols:
         st.markdown(f"---\n## 🔎 {symbol}")
         try:
+            st.write(f"📡 تحميل البيانات لـ: {symbol}")
             df = fetch_data(symbol, period)
-            if df.empty:
-                st.warning(f"⚠️ لا توجد بيانات للسهم {symbol}")
+            if df.empty or df.shape[0] < 60:
+                st.warning(f"⚠️ لا توجد بيانات كافية للسهم {symbol}")
                 continue
 
             df = calculate_indicators(df)
+
+            if any(pd.isna(df[col].iloc[-1]) for col in ['RSI', 'MACD', 'Signal', 'SMA_50']):
+                st.warning(f"⚠️ المؤشرات الفنية غير مكتملة لـ {symbol}")
+                continue
+
             summary = performance_summary(df)
 
             if filter_strong and summary['score'] < 3:
@@ -141,6 +147,9 @@ if st.button("🔍 تحليل الأسهم"):
                 st.subheader("📊 مؤشرات القوة:")
                 for label in ['RSI', 'MACD', 'SMA', 'Trend']:
                     value, color = summary[label]
+                    if pd.isna(value) or np.isinf(value):
+                        st.warning(f"⚠️ المؤشر {label} غير صالح لـ {symbol}")
+                        continue
                     fig = draw_gauge(label, value, 0, 100 if label == 'RSI' else 50, color)
                     st.pyplot(fig)
 
