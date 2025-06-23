@@ -32,12 +32,12 @@ def calculate_indicators(df):
     exp2 = df['Close'].ewm(span=26, adjust=False).mean()
     df['MACD'] = exp1 - exp2
     df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+    
     return df
 
 def plot_chart(df, symbol):
     fig, ax = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
 
-    # السعر والمتوسطات
     ax[0].plot(df['Close'], label='السعر', color='black')
     ax[0].plot(df['SMA_50'], label='SMA 50', linestyle='--')
     ax[0].plot(df['EMA_20'], label='EMA 20', linestyle=':')
@@ -45,7 +45,6 @@ def plot_chart(df, symbol):
     ax[0].legend()
     ax[0].grid(True)
 
-    # RSI
     ax[1].plot(df['RSI'], label='RSI', color='purple')
     ax[1].axhline(70, color='red', linestyle='--')
     ax[1].axhline(30, color='green', linestyle='--')
@@ -53,7 +52,6 @@ def plot_chart(df, symbol):
     ax[1].legend()
     ax[1].grid(True)
 
-    # MACD
     ax[2].plot(df['MACD'], label='MACD', color='blue')
     ax[2].plot(df['Signal'], label='Signal', color='orange')
     ax[2].axhline(0, color='gray', linestyle='--')
@@ -64,45 +62,37 @@ def plot_chart(df, symbol):
     st.pyplot(fig)
 
 def detect_signals(df):
-    if len(df) < 30:
-        return ["❌ لا توجد بيانات كافية للتحليل الفني"]
+    indicators = ['RSI', 'MACD', 'Signal', 'SMA_50']
+    
+    missing = [col for col in indicators if col not in df.columns]
+    if missing:
+        return [f"❌ المؤشرات التالية غير موجودة: {', '.join(missing)}"]
 
-    df = df.dropna(subset=['RSI', 'MACD', 'Signal', 'SMA_50'])
+    df_clean = df.dropna(subset=indicators)
+    if len(df_clean) < 2:
+        return ["❌ لا توجد بيانات كافية للتحليل بعد إزالة القيم الفارغة"]
 
-    if len(df) < 2:
-        return ["❌ المؤشرات غير كافية بعد حذف القيم الفارغة"]
-
-    latest = df.iloc[-1]
-    prev = df.iloc[-2]
+    latest = df_clean.iloc[-1]
+    prev = df_clean.iloc[-2]
 
     signals = []
 
-    try:
-        if latest['RSI'] > 70:
-            signals.append("🔺 RSI يشير إلى تشبع شرائي")
-        elif latest['RSI'] < 30:
-            signals.append("🔻 RSI يشير إلى تشبع بيعي")
-    except:
-        signals.append("⚠️ لم يتم حساب RSI بشكل صحيح")
+    if latest['RSI'] > 70:
+        signals.append("🔺 RSI يشير إلى تشبع شرائي")
+    elif latest['RSI'] < 30:
+        signals.append("🔻 RSI يشير إلى تشبع بيعي")
 
-    try:
-        if prev['MACD'] < prev['Signal'] and latest['MACD'] > latest['Signal']:
-            signals.append("🔺 تقاطع MACD صعودي (إشارة شراء)")
-        elif prev['MACD'] > prev['Signal'] and latest['MACD'] < latest['Signal']:
-            signals.append("🔻 تقاطع MACD هبوطي (إشارة بيع)")
-    except:
-        signals.append("⚠️ لم يتم حساب MACD بشكل صحيح")
+    if prev['MACD'] < prev['Signal'] and latest['MACD'] > latest['Signal']:
+        signals.append("🔺 تقاطع MACD صعودي (إشارة شراء)")
+    elif prev['MACD'] > prev['Signal'] and latest['MACD'] < latest['Signal']:
+        signals.append("🔻 تقاطع MACD هبوطي (إشارة بيع)")
 
-    try:
-        if latest['Close'] > latest['SMA_50']:
-            signals.append("✅ السعر أعلى من المتوسط 50 يوم (قوة)")
-        else:
-            signals.append("⚠️ السعر تحت المتوسط 50 يوم")
-    except:
-        signals.append("⚠️ لا يمكن تقييم وضع السعر مقابل المتوسط")
+    if latest['Close'] > latest['SMA_50']:
+        signals.append("✅ السعر أعلى من المتوسط 50 يوم (قوة)")
+    else:
+        signals.append("⚠️ السعر تحت المتوسط 50 يوم")
 
     return signals
-
 
 # ========== واجهة Streamlit ==========
 
@@ -112,13 +102,20 @@ symbols = st.text_input("📥 أدخل رمز السهم (مثال: AAPL أو 22
 period = st.selectbox("⏳ اختر المدة:", ["1mo", "3mo", "6mo", "1y"], index=2)
 
 if st.button("🔍 تحليل"):
-    df = fetch_data(symbols.upper(), period=period)
-    df = calculate_indicators(df)
+    try:
+        df = fetch_data(symbols.upper(), period=period)
+        if df.empty:
+            st.error("لم يتم جلب بيانات السهم. تأكد من الرمز.")
+        else:
+            df = calculate_indicators(df)
 
-    st.subheader("📊 المخطط الفني:")
-    plot_chart(df, symbols.upper())
+            st.subheader("📊 المخطط الفني:")
+            plot_chart(df, symbols.upper())
 
-    st.subheader("🚨 الإشارات والتحذيرات الفنية:")
-    signals = detect_signals(df)
-    for sig in signals:
-        st.info(sig)
+            st.subheader("🚨 الإشارات والتحذيرات الفنية:")
+            signals = detect_signals(df)
+            for sig in signals:
+                st.info(sig)
+
+    except Exception as e:
+        st.error(f"حدث خطأ أثناء التحليل: {e}")
