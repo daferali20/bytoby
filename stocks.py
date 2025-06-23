@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
+import yfinance as yf
 
 class StockAnalyzer:
     def __init__(self, api_key=None):
@@ -17,8 +18,14 @@ class StockAnalyzer:
         """جلب بيانات السهم من API"""
         if not self.api_key:
             raise ValueError("لم يتم تعيين مفتاح API")
-            
-        url = f"https://api.example.com/stocks/{symbol}?apikey={self.api_key}&period={period}"
+
+    def fetch_data(self, symbol, period="1mo"):
+        data = yf.download(symbol, period=period)
+        data.reset_index(inplace=True)
+        data['date'] = pd.to_datetime(data['Date'])
+        data.set_index('date', inplace=True)
+        return data
+
         response = requests.get(url)
         
         if response.status_code == 200:
@@ -147,13 +154,17 @@ class StockAnalyzer:
             return "سوق متذبذب بدون اتجاه واضح"
     
     def plot_performance(self, symbol, period="6mo"):
-        """رسم بياني لأداء السهم"""
-        data = self.fetch_data(symbol, period)
-        data['close'].plot(title=f"أداء {symbol} خلال آخر {period}")
-        plt.ylabel("السعر")
-        plt.xlabel("التاريخ")
-        plt.grid()
-        plt.show()
+    data = self.fetch_data(symbol, period)
+    plt.figure(figsize=(10,5))
+    plt.plot(data['close'], label=f"{symbol} سعر الإغلاق", color='blue')
+    plt.title(f"أداء {symbol} خلال آخر {period}")
+    plt.xlabel("التاريخ")
+    plt.ylabel("السعر")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
 
 # واجهة المستخدم البسيطة
 def main():
