@@ -9,3 +9,4 @@ lxml
 vaderSentiment
 textblob
 python-telegram-bot
+matplotlib
