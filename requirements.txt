@@ -1,1 +1,11 @@
-pip install streamlit plotly pandas beautifulsoup4 requests lxml
+lxml
+textblob
+streamlit
+yfinance
+pandas
+requests
+plotly
+lxml
+vaderSentiment
+textblob
+python-telegram-bot
