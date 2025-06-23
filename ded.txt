@@ -1,0 +1,2 @@
+تثبيت الحزم المطلوبة:
+pip install requests pandas matplotlib
