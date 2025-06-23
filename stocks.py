@@ -5,36 +5,15 @@ import numpy as np
 import requests
 from datetime import datetime
 
-st.set_page_config(page_title="📊 لوحة التحليل الفني للأسهم", layout="wide")
+st.set_page_config(page_title="📊 مراقبة أداء الأسهم الذكية", layout="wide")
 
 TIINGO_API_KEY = "16be092ddfdcb6e34f1de36875a3072e2c724afb"
-TWELVE_API_KEY = "892f28628ea14be189ae98c007587b3a"
+DEFAULT_SYMBOLS = ["AAPL", "TSLA", "MSFT", "NVDA", "AMZN"]
 
 @st.cache_data
-def fetch_data_twelvedata(symbol, period="6mo"):
-    interval = "1day"
-    outputsize = "5000"
-    url = f"https://api.twelvedata.com/time_series?symbol={symbol}&interval={interval}&outputsize={outputsize}&apikey={TWELVE_API_KEY}"
-    response = requests.get(url)
-    data = response.json()
-
-    if "values" not in data:
-        return pd.DataFrame()
-
-    df = pd.DataFrame(data["values"])
-    df.columns = [col.lower() for col in df.columns]
-    df['date'] = pd.to_datetime(df['datetime'])
-    df.set_index('date', inplace=True)
-    df = df.sort_index()
-
-    numeric_cols = ['open', 'high', 'low', 'close', 'volume']
-    for col in numeric_cols:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
-
-    return df
-
-@st.cache_data
-def fetch_data_tiingo(symbol, start_date="2023-01-01", end_date="2024-01-01"):
+def fetch_data_tiingo(symbol, start_date="2023-01-01", end_date=None):
+    if not end_date:
+        end_date = str(datetime.now().date())
     url = f"https://api.tiingo.com/tiingo/daily/{symbol}/prices"
     params = {
         "startDate": start_date,
@@ -55,16 +34,13 @@ def fetch_data_tiingo(symbol, start_date="2023-01-01", end_date="2024-01-01"):
     df.set_index('date', inplace=True)
     df = df.sort_index()
 
-    numeric_cols = ['open', 'high', 'low', 'close', 'volume']
-    for col in numeric_cols:
+    for col in ['open', 'high', 'low', 'close', 'volume']: 
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
-
     return df
 
 def calculate_indicators(df):
-    df['SMA_50'] = df['close'].rolling(window=50).mean()
-    df['EMA_20'] = df['close'].ewm(span=20, adjust=False).mean()
+    df['SMA_20'] = df['close'].rolling(window=20).mean()
     delta = df['close'].diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
@@ -72,84 +48,61 @@ def calculate_indicators(df):
     avg_loss = loss.rolling(14).mean()
     rs = avg_gain / avg_loss
     df['RSI'] = 100 - (100 / (1 + rs))
-    exp1 = df['close'].ewm(span=12, adjust=False).mean()
-    exp2 = df['close'].ewm(span=26, adjust=False).mean()
-    df['MACD'] = exp1 - exp2
-    df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
     return df.dropna()
 
-def plot_advanced_chart(df, symbol):
-    fig = go.Figure()
-
-    fig.add_trace(go.Candlestick(
-        x=df.index,
-        open=df['open'],
-        high=df['high'],
-        low=df['low'],
-        close=df['close'],
-        name='السعر'
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=df.index,
-        y=df['EMA_20'],
-        mode='lines',
-        line=dict(color='blue', width=1.5),
-        name='EMA 20'
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=df.index,
-        y=df['SMA_50'],
-        mode='lines',
-        line=dict(color='orange', width=1.5, dash='dash'),
-        name='SMA 50'
-    ))
-
-    fig.update_layout(
-        title=f"📉 الشموع اليابانية والمؤشرات - {symbol}",
-        xaxis_title="التاريخ",
-        yaxis_title="السعر",
-        xaxis_rangeslider_visible=False,
-        template='plotly_dark',
-        height=600
-    )
-    return fig
-
-def plot_rsi(df):
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='lightgreen')))
-    fig.add_hline(y=70, line=dict(color='red', dash='dash'))
-    fig.add_hline(y=30, line=dict(color='blue', dash='dash'))
-    fig.update_layout(title='مؤشر القوة النسبية (RSI)', height=300, template='plotly_white')
-    return fig
-
-def plot_macd(df):
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df.index, y=df['MACD'], mode='lines', name='MACD', line=dict(color='cyan')))
-    fig.add_trace(go.Scatter(x=df.index, y=df['Signal'], mode='lines', name='Signal', line=dict(color='orange')))
-    fig.update_layout(title='مؤشر الماكد (MACD)', height=300, template='plotly_white')
-    return fig
-
-st.title("🚀 لوحة التحليل الفني المتقدمة")
-symbol = st.text_input("📥 أدخل رمز السهم (مثال: AAPL أو TADAWUL:2280):", value="AAPL")
-period = st.selectbox("🕒 اختر الفترة الزمنية", ["1mo", "3mo", "6mo", "1y"], index=2)
-data_source = st.selectbox("📡 اختر مصدر البيانات", ["TwelveData", "Tiingo"], index=0)
-
-if st.button("📊 تحليل السهم"):
-    if data_source == "Tiingo":
-        df = fetch_data_tiingo(symbol, start_date="2023-01-01", end_date=str(datetime.now().date()))
+def classify_performance(change):
+    if change > 10:
+        return "🔥 قوي", "green"
+    elif change > 5:
+        return "✅ جيد", "blue"
+    elif change > 0:
+        return "🔹 متوسط", "orange"
     else:
-        df = fetch_data_twelvedata(symbol, period)
+        return "🔻 ضعيف", "red"
 
-    if df.empty or df.shape[0] < 60:
-        st.error("⚠️ لا توجد بيانات كافية لتحليل هذا السهم.")
-    else:
+def gauge_chart(title, value, max_val, unit="", color="blue"):
+    return go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=value,
+        domain={'x': [0, 1], 'y': [0, 1]},
+        title={'text': title},
+        number={'suffix': f" {unit}"},
+        gauge={
+            'axis': {'range': [None, max_val]},
+            'bar': {'color': color},
+            'bgcolor': "white",
+            'steps': [
+                {'range': [0, max_val * 0.3], 'color': "#d0f0fd"},
+                {'range': [max_val * 0.3, max_val * 0.7], 'color': "#90c9f8"},
+                {'range': [max_val * 0.7, max_val], 'color': "#2a79d5"},
+            ]
+        }
+    ))
+
+st.title("🚀 لوحة مراقبة الأسهم الذكية")
+symbols_input = st.text_input("أدخل رموز الأسهم مفصولة بفواصل (أو اتركها فارغة للأفضل):", "")
+symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()] or DEFAULT_SYMBOLS
+
+for symbol in symbols:
+    try:
+        df = fetch_data_tiingo(symbol)
         df = calculate_indicators(df)
-        st.plotly_chart(plot_advanced_chart(df, symbol), use_container_width=True)
 
-        col1, col2 = st.columns(2)
+        latest = df.iloc[-1]
+        change = ((df['close'].iloc[-1] - df['close'].iloc[0]) / df['close'].iloc[0]) * 100
+        rsi = latest['RSI']
+        volume = latest['volume']
+
+        label, color = classify_performance(change)
+
+        st.markdown(f"### 🏷️ {symbol} - {label}")
+        col1, col2, col3 = st.columns(3)
         with col1:
-            st.plotly_chart(plot_rsi(df), use_container_width=True)
+            st.plotly_chart(gauge_chart("📊 الأداء", round(change, 2), 20, "%", color), use_container_width=True)
         with col2:
-            st.plotly_chart(plot_macd(df), use_container_width=True)
+            st.plotly_chart(gauge_chart("📈 RSI", round(rsi, 2), 100, "", "orange"), use_container_width=True)
+        with col3:
+            st.plotly_chart(gauge_chart("💰 السيولة", int(volume), 1_000_000, "", "purple"), use_container_width=True)
+
+    except Exception as e:
+        st.warning(f"⚠️ حدث خطأ أثناء تحليل {symbol}: {e}")
