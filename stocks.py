@@ -25,7 +25,12 @@ def fetch_data(symbol, period="6mo"):
     df['date'] = pd.to_datetime(df['datetime'])
     df.set_index('date', inplace=True)
     df = df.sort_index()
-    df = df.astype(float, errors='ignore')
+
+    # تأكد من تحويل الأعمدة الرقمية إلى float
+    numeric_cols = ['open', 'high', 'low', 'close', 'volume']
+    for col in numeric_cols:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+
     return df
 
 def calculate_indicators(df):
