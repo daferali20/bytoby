@@ -51,6 +51,9 @@ def draw_gauge(label, value, min_value=0, max_value=100, color='green'):
 def performance_summary(df):
     summary = {}
     scores = 0
+
+    df = df.dropna(subset=['RSI', 'MACD', 'Signal', 'SMA_50'])
+
     rsi = df['RSI'].iloc[-1]
     if rsi > 70:
         summary['RSI'] = (rsi, 'red')
@@ -60,6 +63,7 @@ def performance_summary(df):
         summary['RSI'] = (rsi, 'blue')
     else:
         summary['RSI'] = (rsi, 'red')
+
     macd = df['MACD'].iloc[-1]
     signal = df['Signal'].iloc[-1]
     macd_strength = macd - signal
@@ -69,6 +73,7 @@ def performance_summary(df):
         summary['MACD'] = (abs(macd_strength)*10, 'red')
     else:
         summary['MACD'] = (abs(macd_strength)*10, 'blue')
+
     price = df['Close'].iloc[-1]
     sma = df['SMA_50'].iloc[-1]
     sma_diff = price - sma
@@ -76,6 +81,7 @@ def performance_summary(df):
         summary['SMA'] = (sma_diff, 'green'); scores += 1
     else:
         summary['SMA'] = (abs(sma_diff), 'red')
+
     trend = df['Close'].rolling(5).mean().diff().iloc[-1]
     if trend > 0.5:
         summary['Trend'] = (trend*10, 'green'); scores += 1
@@ -83,6 +89,7 @@ def performance_summary(df):
         summary['Trend'] = (abs(trend)*10, 'red')
     else:
         summary['Trend'] = (abs(trend)*10, 'blue')
+
     summary['score'] = scores
     return summary
 
