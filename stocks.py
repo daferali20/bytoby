@@ -106,7 +106,7 @@ def gauge_chart(title, value, max_val, unit="", color="blue"):
     )).update_layout(
         margin=dict(l=10, r=10, t=40, b=10),
         paper_bgcolor="#e8e8e8",
-        height=100  # تصغير الحجم
+        height=160  # تصغير الحجم أكثر
     )
 
 def detect_signals(df):
@@ -201,15 +201,18 @@ if run_analysis:
                 "الحجم": int(volume),
                 "التوصية": recommendation
             })
-            st.markdown(f"### 🏷️ {symbol} - {label}")
-            st.markdown(f"{recommendation}")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.plotly_chart(gauge_chart("📊 الأداء", round(change, 2), 20, "%", color), use_container_width=True)
-            with col2:
-                st.plotly_chart(gauge_chart("📈 RSI", round(rsi, 2), 100, "", "orange"), use_container_width=True)
-            with col3:
-                st.plotly_chart(gauge_chart("💰 السيولة", int(volume), 1_000_000, "", "purple"), use_container_width=True)
+            with st.container():
+                st.markdown(f"### 🏷️ {symbol} - {label}")
+                st.markdown(f"{recommendation}")
+                cols = st.columns([1, 1, 1])
+                charts = [
+                    gauge_chart("📊 الأداء", round(change, 2), 20, "%", color),
+                    gauge_chart("📈 RSI", round(rsi, 2), 100, "", "orange"),
+                    gauge_chart("💰 السيولة", int(volume), 1_000_000, "", "purple")
+                ]
+                for i, col in enumerate(cols):
+                    with col:
+                        st.plotly_chart(charts[i], use_container_width=True)
 
             is_strong = recommendation.startswith("🟢")
             prev_alerted = st.session_state['sent_alerts'].get(symbol, False)
