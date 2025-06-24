@@ -41,6 +41,8 @@ def fetch_data_tiingo(symbol, start_date="2023-01-01", end_date=None):
 
 def calculate_indicators(df):
     df['SMA_20'] = df['close'].rolling(window=20).mean()
+    df['SMA_50'] = df['close'].rolling(window=50).mean()
+    df['SMA_200'] = df['close'].rolling(window=200).mean()
     delta = df['close'].diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
@@ -79,9 +81,32 @@ def gauge_chart(title, value, max_val, unit="", color="blue"):
         }
     ))
 
+def detect_signals(df):
+    signals = {}
+    latest = df.iloc[-1]
+    previous = df.iloc[-2]
+
+    # تقاطع ذهبي
+    golden_cross = (df['SMA_50'].iloc[-2] < df['SMA_200'].iloc[-2]) and (df['SMA_50'].iloc[-1] > df['SMA_200'].iloc[-1])
+
+    # اختراق مقاومة (أعلى إغلاق خلال 3 أشهر)
+    resistance = df['close'].iloc[-60:-1].max()
+    breakout = latest['close'] > resistance
+
+    if golden_cross:
+        signals['golden_cross'] = True
+    if breakout:
+        signals['breakout'] = True
+
+    return signals
+
 st.title("🚀 لوحة مراقبة الأسهم الذكية")
 symbols_input = st.text_input("أدخل رموز الأسهم مفصولة بفواصل (أو اتركها فارغة للأفضل):", "")
 symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()] or DEFAULT_SYMBOLS
+
+rising_stocks = []
+golden_cross_stocks = []
+breakout_stocks = []
 
 for symbol in symbols:
     try:
@@ -94,6 +119,14 @@ for symbol in symbols:
         volume = latest['volume']
 
         label, color = classify_performance(change)
+        signals = detect_signals(df)
+
+        if change > 5:
+            rising_stocks.append(symbol)
+        if signals.get('golden_cross'):
+            golden_cross_stocks.append(symbol)
+        if signals.get('breakout'):
+            breakout_stocks.append(symbol)
 
         st.markdown(f"### 🏷️ {symbol} - {label}")
         col1, col2, col3 = st.columns(3)
@@ -106,3 +139,13 @@ for symbol in symbols:
 
     except Exception as e:
         st.warning(f"⚠️ حدث خطأ أثناء تحليل {symbol}: {e}")
+
+st.markdown("---")
+st.subheader("📈 الأسهم الأكثر ارتفاعًا")
+st.write(", ".join(rising_stocks) if rising_stocks else "لا توجد حالياً")
+
+st.subheader("🌟 الأسهم ذات التقاطع الذهبي")
+st.write(", ".join(golden_cross_stocks) if golden_cross_stocks else "لا توجد حالياً")
+
+st.subheader("🚀 الأسهم التي اخترقت المقاومة")
+st.write(", ".join(breakout_stocks) if breakout_stocks else "لا توجد حالياً")
