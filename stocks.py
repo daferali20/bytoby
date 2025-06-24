@@ -139,7 +139,7 @@ def generate_recommendation(change, rsi, volume, signals):
 
 st.title("🚀 لوحة مراقبة الأسهم الذكية")
 symbols_input = st.text_input("أدخل رموز الأسهم مفصولة بفواصل (أو اتركها فارغة للأفضل):", "")
-symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()] or DEFAULT_SYMBOLS
+symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()] or AUTO_SYMBOLS
 
 refresh_button = st.button("🔁 تحديث البيانات يدويًا")
 auto_refresh = st.checkbox("تحليل تلقائي كل 5 دقائق")
