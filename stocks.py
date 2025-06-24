@@ -72,6 +72,8 @@ def calculate_indicators(df):
     avg_loss = loss.rolling(14).mean()
     rs = avg_gain / avg_loss
     df['RSI'] = 100 - (100 / (1 + rs))
+    df['52_week_high'] = df['close'].rolling(window=252).max()
+    df['52_week_low'] = df['close'].rolling(window=252).min()
     return df.dropna()
 
 def classify_performance(change):
@@ -106,7 +108,7 @@ def gauge_chart(title, value, max_val, unit="", color="blue"):
     )).update_layout(
         margin=dict(l=10, r=10, t=40, b=10),
         paper_bgcolor="#e8e8e8",
-        height=160  # تصغير الحجم أكثر
+        height=160
     )
 
 def detect_signals(df):
@@ -196,14 +198,18 @@ if run_analysis:
                 breakout_stocks.append(symbol)
             recommendations_list.append({
                 "الرمز": symbol,
+                "السعر الحالي": round(latest['close'], 2),
                 "التغير %": round(change, 2),
                 "RSI": round(rsi, 2),
                 "الحجم": int(volume),
+                "أعلى 52 أسبوع": round(latest['52_week_high'], 2),
+                "أدنى 52 أسبوع": round(latest['52_week_low'], 2),
                 "التوصية": recommendation
             })
             with st.container():
                 st.markdown(f"### 🏷️ {symbol} - {label}")
                 st.markdown(f"{recommendation}")
+                st.markdown(f"**السعر الحالي:** {round(latest['close'], 2)} | **أعلى 52 أسبوع:** {round(latest['52_week_high'], 2)} | **أدنى 52 أسبوع:** {round(latest['52_week_low'], 2)}")
                 cols = st.columns([1, 1, 1])
                 charts = [
                     gauge_chart("📊 الأداء", round(change, 2), 20, "%", color),
@@ -217,7 +223,7 @@ if run_analysis:
             is_strong = recommendation.startswith("🟢")
             prev_alerted = st.session_state['sent_alerts'].get(symbol, False)
             if is_strong and not prev_alerted:
-                send_telegram_alert(f"📢 سهم {symbol} يحقق أداء قوي الآن!\nالتغير: {round(change, 2)}%\nRSI: {round(rsi, 2)}\nحجم التداول: {int(volume)}")
+                send_telegram_alert(f"📢 سهم {symbol} يحقق أداء قوي الآن!\nالسعر الحالي: {round(latest['close'], 2)}\nالتغير: {round(change, 2)}%\nRSI: {round(rsi, 2)}\nحجم التداول: {int(volume)}")
                 st.session_state['sent_alerts'][symbol] = True
             elif not is_strong:
                 st.session_state['sent_alerts'][symbol] = False
