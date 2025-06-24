@@ -86,10 +86,7 @@ def detect_signals(df):
     latest = df.iloc[-1]
     previous = df.iloc[-2]
 
-    # تقاطع ذهبي
     golden_cross = (df['SMA_50'].iloc[-2] < df['SMA_200'].iloc[-2]) and (df['SMA_50'].iloc[-1] > df['SMA_200'].iloc[-1])
-
-    # اختراق مقاومة (أعلى إغلاق خلال 3 أشهر)
     resistance = df['close'].iloc[-60:-1].max()
     breakout = latest['close'] > resistance
 
@@ -114,13 +111,13 @@ def generate_recommendation(change, rsi, volume, signals):
         score += 1
 
     if score >= 4:
-        return "🟢 التوصية: راقب السهم — أداء قوي وإشارات متعددة"
+        return "🟢 راقب السهم — أداء قوي"
     elif score == 3:
-        return "🔵 التوصية: جيد — راقبه عن قرب"
+        return "🔵 جيد — راقبه عن قرب"
     elif score == 2:
-        return "🟡 التوصية: متوسط — قد يحتاج تأكيد"
+        return "🟡 متوسط — يحتاج تأكيد"
     else:
-        return "🔴 التوصية: غير مناسب حاليًا"
+        return "🔴 غير مناسب حاليًا"
 
 st.title("🚀 لوحة مراقبة الأسهم الذكية")
 symbols_input = st.text_input("أدخل رموز الأسهم مفصولة بفواصل (أو اتركها فارغة للأفضل):", "")
@@ -129,6 +126,7 @@ symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()] or 
 rising_stocks = []
 golden_cross_stocks = []
 breakout_stocks = []
+recommendations_list = []
 
 for symbol in symbols:
     try:
@@ -150,6 +148,14 @@ for symbol in symbols:
             golden_cross_stocks.append(symbol)
         if signals.get('breakout'):
             breakout_stocks.append(symbol)
+
+        recommendations_list.append({
+            "الرمز": symbol,
+            "التغير %": round(change, 2),
+            "RSI": round(rsi, 2),
+            "الحجم": int(volume),
+            "التوصية": recommendation
+        })
 
         st.markdown(f"### 🏷️ {symbol} - {label}")
         st.markdown(f"{recommendation}")
@@ -173,3 +179,10 @@ st.write(", ".join(golden_cross_stocks) if golden_cross_stocks else "لا توج
 
 st.subheader("🚀 الأسهم التي اخترقت المقاومة")
 st.write(", ".join(breakout_stocks) if breakout_stocks else "لا توجد حالياً")
+
+if recommendations_list:
+    st.markdown("---")
+    st.subheader("📋 جدول التوصيات")
+    df_recommendations = pd.DataFrame(recommendations_list)
+    st.dataframe(df_recommendations, use_container_width=True)
+    st.download_button("📥 تحميل التوصيات", df_recommendations.to_csv(index=False).encode("utf-8"), file_name="stock_recommendations.csv", mime="text/csv")
