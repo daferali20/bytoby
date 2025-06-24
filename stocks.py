@@ -220,5 +220,4 @@ if run_analysis:
         st.subheader("\U0001F4CB جدول التوصيات")
         df_recommendations = pd.DataFrame(recommendations_list)
         st.dataframe(df_recommendations, use_container_width=True)
-        st.download_button("📥 تحميل التوصيات", df_recommendations.to_csv(index=False).encode("utf-8-sig"), file_name="stock_recommendations.csv", mime="text/csv")
-
+        st.download_button("📥 تحميل التوصيات", df_recommendations.to_csv(index=False).encode("utf-8"), file_name="stock_recommendations.csv", mime="text/csv")
