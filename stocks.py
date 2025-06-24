@@ -135,7 +135,20 @@ symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()] or 
 refresh_button = st.button("🔁 تحديث البيانات يدويًا")
 auto_refresh = st.checkbox("تحليل تلقائي كل 5 دقائق")
 
-if refresh_button or auto_refresh or True:
+if 'sent_alerts' not in st.session_state:
+    st.session_state['sent_alerts'] = {}
+
+run_analysis = False
+if auto_refresh:
+    last_run = st.session_state.get("last_run", None)
+    now = time.time()
+    if not last_run or now - last_run > 300:
+        st.session_state["last_run"] = now
+        run_analysis = True
+else:
+    run_analysis = refresh_button
+
+if run_analysis:
     rising_stocks = []
     golden_cross_stocks = []
     breakout_stocks = []
@@ -174,11 +187,18 @@ if refresh_button or auto_refresh or True:
                 st.plotly_chart(gauge_chart("📈 RSI", round(rsi, 2), 100, "", "orange"), use_container_width=True)
             with col3:
                 st.plotly_chart(gauge_chart("💰 السيولة", int(volume), 1_000_000, "", "purple"), use_container_width=True)
-            # إرسال تنبيه تلقائي للأسهم القوية
-            if recommendation.startswith("🟢"):
+
+            is_strong = recommendation.startswith("🟢")
+            prev_alerted = st.session_state['sent_alerts'].get(symbol, False)
+            if is_strong and not prev_alerted:
                 send_telegram_alert(f"📢 سهم {symbol} يحقق أداء قوي الآن!\nالتغير: {round(change, 2)}%\nRSI: {round(rsi, 2)}\nحجم التداول: {int(volume)}")
+                st.session_state['sent_alerts'][symbol] = True
+            elif not is_strong:
+                st.session_state['sent_alerts'][symbol] = False
+
         except Exception as e:
             st.warning(f"⚠️ حدث خطأ أثناء تحليل {symbol}: {e}")
+
     st.markdown("---")
     st.subheader("📈 الأسهم الأكثر ارتفاعًا")
     st.write(", ".join(rising_stocks) if rising_stocks else "لا توجد حالياً")
