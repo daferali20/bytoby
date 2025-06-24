@@ -100,6 +100,28 @@ def detect_signals(df):
 
     return signals
 
+def generate_recommendation(change, rsi, volume, signals):
+    score = 0
+    if change > 5:
+        score += 1
+    if 45 < rsi < 70:
+        score += 1
+    if volume > 200000:
+        score += 1
+    if signals.get("golden_cross"):
+        score += 1
+    if signals.get("breakout"):
+        score += 1
+
+    if score >= 4:
+        return "🟢 التوصية: راقب السهم — أداء قوي وإشارات متعددة"
+    elif score == 3:
+        return "🔵 التوصية: جيد — راقبه عن قرب"
+    elif score == 2:
+        return "🟡 التوصية: متوسط — قد يحتاج تأكيد"
+    else:
+        return "🔴 التوصية: غير مناسب حاليًا"
+
 st.title("🚀 لوحة مراقبة الأسهم الذكية")
 symbols_input = st.text_input("أدخل رموز الأسهم مفصولة بفواصل (أو اتركها فارغة للأفضل):", "")
 symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()] or DEFAULT_SYMBOLS
@@ -120,6 +142,7 @@ for symbol in symbols:
 
         label, color = classify_performance(change)
         signals = detect_signals(df)
+        recommendation = generate_recommendation(change, rsi, volume, signals)
 
         if change > 5:
             rising_stocks.append(symbol)
@@ -129,6 +152,7 @@ for symbol in symbols:
             breakout_stocks.append(symbol)
 
         st.markdown(f"### 🏷️ {symbol} - {label}")
+        st.markdown(f"{recommendation}")
         col1, col2, col3 = st.columns(3)
         with col1:
             st.plotly_chart(gauge_chart("📊 الأداء", round(change, 2), 20, "%", color), use_container_width=True)
