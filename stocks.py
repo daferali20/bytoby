@@ -106,7 +106,7 @@ def gauge_chart(title, value, max_val, unit="", color="blue"):
     )).update_layout(
         margin=dict(l=10, r=10, t=40, b=10),
         paper_bgcolor="#e8e8e8",
-        height=200  # تصغير الحجم
+        height=100  # تصغير الحجم
     )
 
 def detect_signals(df):
