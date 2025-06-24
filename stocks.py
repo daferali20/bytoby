@@ -33,7 +33,7 @@ def send_telegram_alert(message: str):
         st.sidebar.error(f"❌ خطأ أثناء إرسال التنبيه: {e}")
 
 @st.cache_data
-def fetch_data_tiingo(symbol, start_date="2023-01-01", end_date=None):
+def fetch_data_tiingo(symbol, start_date="2025-01-01", end_date=None):
     if not end_date:
         end_date = str(datetime.now().date())
     url = f"https://api.tiingo.com/tiingo/daily/{symbol}/prices"
