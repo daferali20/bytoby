@@ -3,12 +3,11 @@ import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime
 import time
 import threading
 import telegram
-#----------------------
-#----------------------
+
 st.set_page_config(page_title="\U0001F4CA مراقبة أداء الأسهم الذكية", layout="wide")
 
 TIINGO_API_KEY = "16be092ddfdcb6e34f1de36875a3072e2c724afb"
