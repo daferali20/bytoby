@@ -18,7 +18,7 @@ DEFAULT_SYMBOLS = AUTO_SYMBOLS = [
     "PEP", "KO", "LLY", "JNJ", "WMT", "PG", "ADBE", "CRM", "BAC", "PFE", "T", "DIS", "CSCO", "ORCL", "INTC", "AMD"
 ]
 
-bot = telegram.Bot(token=TELEGRAM_BOT_TOKEN)
+#bot = telegram.Bot(token=TELEGRAM_BOT_TOKEN)
 
 def send_telegram_alert(message):
     try:
