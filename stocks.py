@@ -89,19 +89,25 @@ def gauge_chart(title, value, max_val, unit="", color="blue"):
         mode="gauge+number",
         value=value,
         domain={'x': [0, 1], 'y': [0, 1]},
-        title={'text': title},
-        number={'suffix': f" {unit}"},
+        title={'text': title, 'font': {'size': 14}},
+        number={'suffix': f" {unit}", 'font': {'size': 16}},
         gauge={
-            'axis': {'range': [None, max_val]},
-            'bar': {'color': color},
-            'bgcolor': "white",
+            'axis': {'range': [None, max_val], 'tickwidth': 1, 'tickcolor': "darkgray"},
+            'bar': {'color': color, 'thickness': 0.2},
+            'bgcolor': "#f7f7f7",
+            'borderwidth': 2,
+            'bordercolor': "gray",
             'steps': [
-                {'range': [0, max_val * 0.3], 'color': "#d0f0fd"},
-                {'range': [max_val * 0.3, max_val * 0.7], 'color': "#90c9f8"},
-                {'range': [max_val * 0.7, max_val], 'color': "#2a79d5"},
+                {'range': [0, max_val * 0.3], 'color': "#f0f8ff"},
+                {'range': [max_val * 0.3, max_val * 0.7], 'color': "#add8e6"},
+                {'range': [max_val * 0.7, max_val], 'color': "#4682b4"},
             ]
-        }
-    ))
+        },
+    )).update_layout(
+        margin=dict(l=10, r=10, t=40, b=10),
+        paper_bgcolor="#e8e8e8",
+        height=200  # تصغير الحجم
+    )
 
 def detect_signals(df):
     signals = {}
