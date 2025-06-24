@@ -3,11 +3,54 @@ import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 import threading
 import telegram
+#----------------------
+import plotly.graph_objects as go
+from textblob import TextBlob
+import random
 
+#----
+if 'telegram_setup' not in st.session_state:
+    st.session_state.telegram_setup = {
+        'bot_token': '',
+        'chat_id': ''
+    }
+
+def send_telegram_alert(message: str):
+    """إرسال تنبيه إلى Telegram"""
+    try:
+        bot_token = st.session_state.telegram_setup["bot_token"]
+        chat_id = st.session_state.telegram_setup["chat_id"]
+
+        if not bot_token or not chat_id:
+            st.warning("⚠️ لم يتم ضبط إعدادات Telegram بعد.")
+            return False
+
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        payload = {
+            "chat_id": chat_id,
+            "text": message,
+            "parse_mode": "HTML"
+        }
+
+        response = requests.post(url, json=payload)
+        if response.status_code == 200:
+            return True
+        else:
+            st.error(f"❌ فشل الإرسال. الكود: {response.status_code} - {response.text}")
+            return False
+
+    except Exception as e:
+        st.error(f"❌ حدث خطأ أثناء الإرسال: {e}")
+        return False
+    #----
+# تهيئة الصفحة
+
+
+#----------------------
 st.set_page_config(page_title="\U0001F4CA مراقبة أداء الأسهم الذكية", layout="wide")
 
 TIINGO_API_KEY = "16be092ddfdcb6e34f1de36875a3072e2c724afb"
