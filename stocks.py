@@ -45,9 +45,11 @@ def send_telegram_alert(message: str):
 
 
 @st.cache_data
-def fetch_data_tiingo(symbol, start_date="2025-01-01", end_date=None):
+def fetch_data_tiingo(symbol, start_date=None, end_date=None):
     if not end_date:
         end_date = str(datetime.now().date())
+    if not start_date:
+        start_date = (datetime.now() - pd.DateOffset(years=2)).strftime("%Y-%m-%d")  # قبل سنتين
     url = f"https://api.tiingo.com/tiingo/daily/{symbol}/prices"
     params = {
         "startDate": start_date,
@@ -176,6 +178,7 @@ def generate_recommendation(change, rsi, volume, signals):
     else:
         return "🔴 غير مناسب حاليًا"
 
+
 # Render news on sidebar
 st.sidebar.title("📰 الأخبار العاجلة")
 latest_news = fetch_latest_news()
@@ -201,22 +204,19 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("📈 قائمة الأسهم الأكثر ارتفاعًا")
 st.sidebar.dataframe(top_gainers_df.rename(columns={"ticker": "الرمز", "changePercent": "% التغير"}).round(3), use_container_width=True)
 
-# التحليل الكامل للأسهم سيتم إضافته الآن...
-# (يمكن إضافة الكود المتعلق بالتحليل وعرض النتائج هنا)
+
 st.title("📊 تحليل الأسهم الذكية")
 
-# اختر سهم للتحليل من القائمة
 selected_symbol = st.selectbox("اختر سهمًا للتحليل", options=AUTO_SYMBOLS, index=0)
 
 if selected_symbol:
     with st.spinner(f"جلب البيانات وتحليل السهم {selected_symbol}..."):
         df = fetch_data_tiingo(selected_symbol)
-        if df.empty:
-            st.warning("⚠️ لا توجد بيانات متاحة لهذا السهم حالياً.")
+        if df.empty or len(df) < 2:
+            st.warning("⚠️ لا توجد بيانات كافية لهذا السهم حالياً.")
         else:
             df = calculate_indicators(df)
 
-            # رسم السعر والمتوسطات المتحركة
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=df.index, y=df['close'], mode='lines', name='سعر الإغلاق'))
             fig.add_trace(go.Scatter(x=df.index, y=df['SMA_20'], mode='lines', name='SMA 20'))
@@ -231,7 +231,6 @@ if selected_symbol:
 
             performance, color = classify_performance(change_percent)
 
-            # عرض المؤشرات الأساسية
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("التغير %", f"{change_percent:.2f}%", delta=f"{change_percent:.2f}%")
             col2.metric("مؤشر RSI", f"{latest['RSI']:.2f}")
@@ -241,7 +240,6 @@ if selected_symbol:
             st.markdown(f"### التقييم الحالي: <span style='color:{color}; font-weight:bold'>{performance}</span>", unsafe_allow_html=True)
             st.markdown(f"### حجم التداول: {int(latest['volume']):,}")
 
-            # إشارات فنية
             signals = detect_signals(df)
             st.markdown("### إشارات فنية")
             if signals.get('golden_cross'):
@@ -251,11 +249,9 @@ if selected_symbol:
             if not signals:
                 st.info("لا توجد إشارات فنية حالياً.")
 
-            # التوصية
             recommendation = generate_recommendation(change_percent, latest['RSI'], latest['volume'], signals)
             st.markdown(f"### التوصية: {recommendation}")
 
-            # زر لإرسال تنبيه تيليجرام
             if st.button("📩 إرسال تنبيه تيليجرام للتوصية"):
                 message = (
                     f"توصية للسهم <b>{selected_symbol}</b>:\n"
