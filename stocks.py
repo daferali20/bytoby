@@ -203,3 +203,66 @@ st.sidebar.dataframe(top_gainers_df.rename(columns={"ticker": "الرمز", "cha
 
 # التحليل الكامل للأسهم سيتم إضافته الآن...
 # (يمكن إضافة الكود المتعلق بالتحليل وعرض النتائج هنا)
+st.title("📊 تحليل الأسهم الذكية")
+
+# اختر سهم للتحليل من القائمة
+selected_symbol = st.selectbox("اختر سهمًا للتحليل", options=AUTO_SYMBOLS, index=0)
+
+if selected_symbol:
+    with st.spinner(f"جلب البيانات وتحليل السهم {selected_symbol}..."):
+        df = fetch_data_tiingo(selected_symbol)
+        if df.empty:
+            st.warning("⚠️ لا توجد بيانات متاحة لهذا السهم حالياً.")
+        else:
+            df = calculate_indicators(df)
+
+            # رسم السعر والمتوسطات المتحركة
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=df.index, y=df['close'], mode='lines', name='سعر الإغلاق'))
+            fig.add_trace(go.Scatter(x=df.index, y=df['SMA_20'], mode='lines', name='SMA 20'))
+            fig.add_trace(go.Scatter(x=df.index, y=df['SMA_50'], mode='lines', name='SMA 50'))
+            fig.add_trace(go.Scatter(x=df.index, y=df['SMA_200'], mode='lines', name='SMA 200'))
+            fig.update_layout(title=f"مخطط سعر سهم {selected_symbol}", xaxis_title="التاريخ", yaxis_title="السعر")
+            st.plotly_chart(fig, use_container_width=True)
+
+            latest = df.iloc[-1]
+            previous = df.iloc[-2]
+            change_percent = (latest['close'] / previous['close'] - 1) * 100
+
+            performance, color = classify_performance(change_percent)
+
+            # عرض المؤشرات الأساسية
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("التغير %", f"{change_percent:.2f}%", delta=f"{change_percent:.2f}%")
+            col2.metric("مؤشر RSI", f"{latest['RSI']:.2f}")
+            col3.metric("أعلى سعر خلال 52 أسبوع", f"{latest['52_week_high']:.2f}")
+            col4.metric("أدنى سعر خلال 52 أسبوع", f"{latest['52_week_low']:.2f}")
+
+            st.markdown(f"### التقييم الحالي: <span style='color:{color}; font-weight:bold'>{performance}</span>", unsafe_allow_html=True)
+            st.markdown(f"### حجم التداول: {int(latest['volume']):,}")
+
+            # إشارات فنية
+            signals = detect_signals(df)
+            st.markdown("### إشارات فنية")
+            if signals.get('golden_cross'):
+                st.success("✅ تقاطع ذهبي (Golden Cross) تم الكشف عنه.")
+            if signals.get('breakout'):
+                st.success("🚀 كسر المقاومة (Breakout) تم الكشف عنه.")
+            if not signals:
+                st.info("لا توجد إشارات فنية حالياً.")
+
+            # التوصية
+            recommendation = generate_recommendation(change_percent, latest['RSI'], latest['volume'], signals)
+            st.markdown(f"### التوصية: {recommendation}")
+
+            # زر لإرسال تنبيه تيليجرام
+            if st.button("📩 إرسال تنبيه تيليجرام للتوصية"):
+                message = (
+                    f"توصية للسهم <b>{selected_symbol}</b>:\n"
+                    f"التغير: {change_percent:.2f}%\n"
+                    f"RSI: {latest['RSI']:.2f}\n"
+                    f"حجم التداول: {int(latest['volume']):,}\n"
+                    f"التقييم: {performance}\n"
+                    f"التوصية: {recommendation}"
+                )
+                send_telegram_alert(message)
