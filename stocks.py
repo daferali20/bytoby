@@ -60,7 +60,29 @@ def fetch_data_tiingo(symbol, start_date="2025-01-01", end_date=None):
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
     return df
+def fetch_latest_news():
+    url = "https://api.tiingo.com/tiingo/news"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Token {TIINGO_API_KEY}"
+    }
+    try:
+        response = requests.get(url, headers=headers)
+        data = response.json()
+        return data[:10] if isinstance(data, list) else []
+    except:
+        return []
 
+
+# Render news on sidebar
+st.sidebar.title("📰 الأخبار العاجلة")
+latest_news = fetch_latest_news()
+if latest_news:
+    for news in latest_news:
+        st.sidebar.markdown(f"- [{news.get('title')}]({news.get('url')})")
+else:
+    st.sidebar.write("لا توجد أخبار حالياً.")
+    
 def calculate_indicators(df):
     df['SMA_20'] = df['close'].rolling(window=20).mean()
     df['SMA_50'] = df['close'].rolling(window=50).mean()
