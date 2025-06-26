@@ -290,7 +290,7 @@ if selected_symbol:
                     f"📊 التغير: {change_percent:.2f}%\n"
                     f"📈 RSI: {latest['RSI']:.2f}\n"
                     f"📦 حجم التداول: {int(latest['volume']):,}\n"
-                    f"🧠 التوصية الفنية: {recommendation}"
+                    f"🧠 النظرة الفنية: {recommendation}"
                 )
                 send_telegram_alert(message)
 
