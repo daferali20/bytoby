@@ -14,17 +14,28 @@ TELEGRAM_BOT_TOKEN = "7955161282:AAG2udkomniL-9kEgwdVheYXI52wVR3wiVM"
 TELEGRAM_CHAT_ID = "@D_Option"
 
 
-def fetch_top_gainers(limit=30):
+def fetch_top_gainers(limit=13):
     url = f"https://api.tiingo.com/iex/?token={TIINGO_API_KEY}"
     try:
         response = requests.get(url)
         data = response.json()
         df = pd.DataFrame(data)
+
+        # حساب النسبة المئوية للتغير
         df['changePercent'] = df['last'] / df['prevClose'] - 1
-        top_gainers = df.sort_values(by='changePercent', ascending=False).head(limit)
+
+        # تصفية الأسهم التي ارتفعت أكثر من 5% وأقل من 200%
+        filtered = df[(df['changePercent'] >= 0.05) & (df['changePercent'] <= 2.0)]
+
+        # ترتيبها من الأعلى إلى الأقل وأخذ أول 'limit' سهم
+        top_gainers = filtered.sort_values(by='changePercent', ascending=False).head(limit)
+
+        # إرجاع النتائج
         return top_gainers[['ticker', 'changePercent']]
-    except:
+    except Exception as e:
+        print(f"Error fetching gainers: {e}")
         return pd.DataFrame(columns=['ticker', 'changePercent'])
+
 
 
 def send_telegram_alert(message: str):
