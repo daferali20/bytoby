@@ -77,16 +77,22 @@ def fetch_data_tiingo(symbol, start_date=None, end_date=None):
 
 
 def fetch_latest_news():
-    url = "https://api.tiingo.com/tiingo/news"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Token {TIINGO_API_KEY}"
+    url = "https://newsapi.org/v2/top-headlines"
+    params = {
+        "country": "us",   # يمكن تغييره حسب الدولة أو حسب ما تريد
+        "pageSize": 10,
+        "apiKey": NEWS_API_KEY
     }
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, params=params)
         data = response.json()
-        return data[:10] if isinstance(data, list) else []
-    except:
+        # تحقق إذا كانت الاستجابة ناجحة
+        if data.get("status") == "ok":
+            return data.get("articles", [])
+        else:
+            return []
+    except Exception as e:
+        print(f"Error fetching news: {e}")
         return []
 
 
