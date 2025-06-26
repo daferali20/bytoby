@@ -268,14 +268,23 @@ if selected_symbol:
 
             recommendation = generate_recommendation(change_percent, latest['RSI'], latest['volume'], signals)
             st.markdown(f"### التوصية: {recommendation}")
-
+            
+            # عرض إضافي في واجهة Streamlit
+            st.write(f"🔹 السعر الحالي: ${current_price:,.2f}")
+            st.write(f"🔺 أعلى سعر خلال 52 أسبوع: ${high_52:,.2f}")
+            st.write(f"🔻 أدنى سعر خلال 52 أسبوع: ${low_52:,.2f}")
+            
             if st.button("📩 إرسال تنبيه تيليجرام للتوصية"):
                 message = (
                     f"توصية للسهم <b>{selected_symbol}</b>:\n"
+                    f"السعر الحالي: ${current_price:,.2f}\n"
+                    f"أعلى سعر 52 أسبوع: ${high_52:,.2f}\n"
+                    f"أدنى سعر 52 أسبوع: ${low_52:,.2f}\n"
                     f"التغير: {change_percent:.2f}%\n"
                     f"RSI: {latest['RSI']:.2f}\n"
                     f"حجم التداول: {int(latest['volume']):,}\n"
                     f"التقييم: {performance}\n"
-                    f"التوصية: {recommendation}"
+                    f"📈 النظرة الفنية: {recommendation}"
                 )
                 send_telegram_alert(message)
+
