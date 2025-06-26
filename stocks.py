@@ -80,7 +80,7 @@ def fetch_latest_news():
     url = "https://newsapi.org/v2/top-headlines"
     params = {
         "country": "us",   # يمكن تغييره حسب الدولة أو حسب ما تريد
-        "pageSize": 10,
+        "pageSize": 5,
         "apiKey": NEWS_API_KEY
     }
     try:
