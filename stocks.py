@@ -8,7 +8,7 @@ import time
 import threading
 
 st.set_page_config(page_title="📊 مراقبة أداء الأسهم الذكية", layout="wide")
-
+NEWS_API_KEY = "f55929edb5ee471791a1e622332ff6d8"
 TIINGO_API_KEY = "16be092ddfdcb6e34f1de36875a3072e2c724afb"
 TELEGRAM_BOT_TOKEN = "7955161282:AAG2udkomniL-9kEgwdVheYXI52wVR3wiVM"
 TELEGRAM_CHAT_ID = "@D_Option"
