@@ -257,7 +257,7 @@ if selected_symbol:
             st.markdown(f"### التقييم الحالي: <span style='color:{color}; font-weight:bold'>{performance}</span>", unsafe_allow_html=True)
             st.markdown(f"### حجم التداول: {int(latest['volume']):,}")
 
-                        signals = detect_signals(df)
+            signals = detect_signals(df)
             st.markdown("### إشارات فنية")
             if signals.get('golden_cross'):
                 st.success("✅ تقاطع ذهبي (Golden Cross) تم الكشف عنه.")
