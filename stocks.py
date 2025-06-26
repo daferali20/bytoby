@@ -265,7 +265,6 @@ if selected_symbol:
                 st.success("🚀 كسر المقاومة (Breakout) تم الكشف عنه.")
             if not signals:
                 st.info("لا توجد إشارات فنية حالياً.")
-
             recommendation = generate_recommendation(change_percent, latest['RSI'], latest['volume'], signals)
             st.markdown(f"### التوصية: {recommendation}")
             
